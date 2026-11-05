@@ -3,7 +3,7 @@
 	"id": "skybox-overhaul",
 	"version": "${version}",
 	"name": "Skybox Overhaul",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Reimagines the Minecraft sky with a custom nebula and star-filled night skybox. Requires Skyboxify.",
 	"authors": [
 		"Me!"
 	],
@@ -13,7 +13,13 @@
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/skybox-overhaul/icon.png",
-	"environment": "*",
+	"environment": "client",
+	"mixins": [
+		{
+			"config": "skybox-overhaul.client.mixins.json",
+			"environment": "client"
+		}
+	],
 	"entrypoints": {
 		"main": [
 			"skybox.overhaul.SkyboxOverhaul"
@@ -22,17 +28,11 @@
 			"skybox.overhaul.client.SkyboxOverhaulClient"
 		]
 	},
-	"mixins": [
-		"skybox-overhaul.mixins.json",
-		{
-			"config": "skybox-overhaul.client.mixins.json",
-			"environment": "client"
-		}
-	],
 	"depends": {
 		"fabricloader": ">=0.20.1",
 		"minecraft": "~26.1",
 		"java": ">=25",
-		"fabric-api": "*"
+		"fabric-api": "*",
+		"skyboxify": "*"
 	}
 }
