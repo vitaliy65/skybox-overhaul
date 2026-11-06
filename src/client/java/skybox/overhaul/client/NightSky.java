@@ -31,13 +31,16 @@ import org.joml.Vector4f;
 
 /**
  * Replacement for vanilla renderStars: same 1500 star positions (same RNG stream), square pixel stars,
- * but each star has its own size, colour and brightness, twinkle runs per bucket of stars, plus a rare comet.
+ * but each star has its own size, colour and brightness, twinkle runs per bucket of stars, plus comets that fly across the sky and fade out.
  */
 public final class NightSky implements AutoCloseable {
 	private static final int STARS = 1500;
 	private static final int BUCKETS = 16;      // twinkle groups: 16 distinct rhythms, stars assigned at random
 	private static final int COMET_TAIL = 14;
-	private static final long DAY = 24000L;
+	private static final long COMET_SLOT = 100L;   // ticks: one spawn roll per slot
+	private static final float COMET_LIFE = 100.0F; // ticks (20 s) a comet flies, then it is gone; may span several slots
+	private static final float COMET_ARC = 2.4F;    // radians flown over its life (~137 degrees)
+	private static final int COMET_SLOTS_BACK = (int) (COMET_LIFE / COMET_SLOT) + 1; // older slots whose comet can still be alive
 	private static final int[] TINTS = {0xB5C8FF, 0xFFFFFF, 0xFFF2C8, 0xFFC28A, 0xFF9A80}; // blue-white .. red
 
 	private record Star(int bucket, float[] v, int color) {}
@@ -50,9 +53,6 @@ public final class NightSky implements AutoCloseable {
 	private final float[] depth = new float[BUCKETS];
 	private int starIndexCount;
 
-	private long cometDay = Long.MIN_VALUE;
-	private int cometRoll; // 0..99, today's dice: comet shows when below SkyboxConfig.cometPercent (so the slider works instantly)
-	private float cometTail;
 	private final Quaternionf cometOrient = new Quaternionf();
 
 	public NightSky() {
@@ -150,17 +150,26 @@ public final class NightSky implements AutoCloseable {
 		b.addVertex(cx + h, 100.0F, -h).setColor(argb);
 	}
 
-	private void updateComet(long day) {
-		cometDay = day;
-		SplittableRandom r = new SplittableRandom(day * 0x9E3779B97F4A7C15L);
-		cometRoll = r.nextInt(100);
-		cometTail = (float) (r.nextDouble() * Math.PI * 2.0);
+	/**
+	 * Stateless: a comet is fully defined by its slot number (dice, launch tick, orientation), so sleeping, time skips
+	 * and reloads stay consistent. Returns launch tick offset inside the slot, or -1 when this slot has no comet.
+	 */
+	private float rollComet(long slot) {
+		SplittableRandom r = new SplittableRandom(slot * 0x9E3779B97F4A7C15L);
+		int roll = r.nextInt(100); // compared with the live setting, so the slider works instantly
+		float start = (float) (r.nextDouble() * COMET_SLOT);
 		Vector3f axis = new Vector3f((float) r.nextDouble() * 2 - 1, (float) r.nextDouble() * 2 - 1, (float) r.nextDouble() * 2 - 1);
 		if (axis.lengthSquared() < 1.0E-4F) {
 			axis.set(0.0F, 1.0F, 0.0F);
 		}
 		axis.normalize();
 		cometOrient.identity().rotateAxis((float) (r.nextDouble() * Math.PI * 2.0), axis.x, axis.y, axis.z);
+		return roll < SkyboxConfig.cometPercent ? start : -1.0F;
+	}
+
+	private static float smooth(float x) {
+		x = Math.max(0.0F, Math.min(1.0F, x));
+		return x * x * (3.0F - 2.0F * x);
 	}
 
 	private float twinkle(int b, double t) {
@@ -185,20 +194,25 @@ public final class NightSky implements AutoCloseable {
 			slices[b] = transform(mv, starBrightness * twinkle(b, t));
 		}
 
-		GpuBufferSlice cometSlice = null;
+		List<GpuBufferSlice> cometSlices = new ArrayList<>();
 		ClientLevel level = Minecraft.getInstance().level;
 		if (level != null) {
 			double ticks = level.getGameTime() + Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
-			long day = Math.floorDiv((long) ticks, DAY);
-			if (day != cometDay) {
-				updateComet(day);
-			}
-			if (cometRoll < SkyboxConfig.cometPercent) {
-				float frac = (float) ((ticks - day * DAY) / DAY);
+			long now = Math.floorDiv((long) ticks, COMET_SLOT);
+			for (long slot = now; slot > now - COMET_SLOTS_BACK; slot--) {
+				float start = rollComet(slot);
+				if (start < 0.0F) {
+					continue;
+				}
+				float p = (float) ((ticks - slot * COMET_SLOT - start) / COMET_LIFE); // 0..1 over its life
+				if (p < 0.0F || p >= 1.0F) {
+					continue;
+				}
+				float fade = smooth(p / 0.3F) * smooth((1.0F - p) / 0.4F); // long smooth fade in and out
 				mv.pushMatrix();
-				// great-circle crawl of ~50 degrees over one day, tail direction fixed per comet
-				mv.rotate(cometOrient).rotateX((frac - 0.5F) * 0.9F).rotateY(cometTail);
-				cometSlice = transform(mv, starBrightness);
+				// great-circle flight; head moves toward +Z, so the tail (+X turned by 90 deg about Y) points to -Z, behind it
+				mv.rotate(cometOrient).rotateX((p - 0.5F) * COMET_ARC).rotateY((float) (Math.PI / 2.0));
+				cometSlices.add(transform(mv, starBrightness * fade));
 				mv.popMatrix();
 			}
 		}
@@ -221,10 +235,12 @@ public final class NightSky implements AutoCloseable {
 					baseVertex += bucketStars[b] * 4;
 				}
 			}
-			if (cometSlice != null) {
-				pass.setUniform("DynamicTransforms", cometSlice);
+			if (!cometSlices.isEmpty()) {
 				pass.setVertexBuffer(0, cometBuffer);
-				pass.drawIndexed(0, 0, (2 + COMET_TAIL) * 6, 1);
+				for (GpuBufferSlice c : cometSlices) {
+					pass.setUniform("DynamicTransforms", c);
+					pass.drawIndexed(0, 0, (2 + COMET_TAIL) * 6, 1);
+				}
 			}
 		}
 

@@ -22,7 +22,7 @@ and are saved to `config/skybox-overhaul.properties` when the screen closes.
 
 - **Sky colours**: 0% = vanilla, 100% = pure palette.
 - **Sunset glow**: overall strength of the sunrise/sunset layers.
-- **Comet chance per night**: 0-100%.
+- **Comet spawn chance, rolled every 5 s (a comet flies ~20 s, fades in and out)**: 0-100%.
 - **Hide vanilla sunset fan**: off brings vanilla's own sunset fan back on top of ours.
 
 Mod Menu versions: Minecraft 26.1 -> 18.0.2, 26.2 -> 20.0.3, 26.3 -> 21.0.0 (`modmenu_version` in `gradle.properties`).
