@@ -6,6 +6,7 @@
 	"skybox-overhaul.config.sunset": "Sunset glow: %s",
 	"skybox-overhaul.config.comets": "Comet spawn chance: %s",
 	"skybox-overhaul.config.fan": "Hide vanilla sunset fan: %s",
+	"skybox-overhaul.config.celestials": "Custom sun & moon: %s",
 	"skybox-overhaul.config.reset": "Reset",
 	"skybox-overhaul.config.aurora": "Aurora: %s",
 	"skybox-overhaul.config.aurora-cold": "Cold biomes only: %s",
@@ -13,5 +14,6 @@
 	"skybox-overhaul.config.aurora-speed": "Animation speed: %s",
 	"skybox-overhaul.config.aurora-flares": "Flares: %s",
 	"skybox-overhaul.config.aurora-grid": "Grid cell: %s",
-	"skybox-overhaul.config.aurora-height": "Pillar height: %s"
+	"skybox-overhaul.config.aurora-height": "Pillar height: %s",
+	"skybox-overhaul.config.aurora-frequency": "Ribbon frequency: %s"
 }

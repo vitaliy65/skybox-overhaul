@@ -23,6 +23,19 @@ public final class SkyboxPipelines {
 			.withCull(false)
 			.build());
 
+	/** Custom sun/moon: alpha-blended textured quads (glow baked into the PNG), tested against depth, never written. */
+	public static final RenderPipeline CELESTIAL = RenderPipelines.register(
+		RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
+			.withLocation("pipeline/skybox_overhaul_celestial")
+			.withVertexShader("core/position_tex_color")
+			.withFragmentShader("core/position_tex_color")
+			.withSampler("Sampler0")
+			.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+			.withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
+			.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, Mode.QUADS)
+			.withCull(false)
+			.build());
+
 	/** Plain alpha-blended coloured quads: the horizon haze. */
 	public static final RenderPipeline HAZE = RenderPipelines.register(
 		RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
@@ -44,7 +57,7 @@ public final class SkyboxPipelines {
 			.withLocation("pipeline/skybox_overhaul_aurora")
 			.withVertexShader("core/position_color")
 			.withFragmentShader("core/position_color")
-			.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+			.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))
 			.withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
 			.withVertexFormat(DefaultVertexFormat.POSITION_COLOR, Mode.QUADS)
 			.withCull(true)

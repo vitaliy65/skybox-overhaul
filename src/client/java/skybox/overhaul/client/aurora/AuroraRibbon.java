@@ -15,8 +15,9 @@ public final class AuroraRibbon {
 	// Cell size and pillar height are live sliders in Mod Menu (SkyboxConfig).
 	public static final int PATCH_CELLS = 128; // Patch width/depth, measured in grid cells.
 
-	private static final int MIN_RIBBONS = 1;
-	private static final int MAX_RIBBONS = 2;
+	// Every patch always generates this many snakes; the "Ribbon frequency" setting decides how many are shown
+	// (each snake has a fixed random threshold, so the slider works live and the layout never reshuffles).
+	private static final int MAX_RIBBONS = 8;
 	private static final int MIN_CHAIN_LENGTH = 38;
 	private static final int MAX_CHAIN_LENGTH = 72;
 	private static final int EDGE_MARGIN = 2;
@@ -48,9 +49,15 @@ public final class AuroraRibbon {
 	private static final float FLARE_GAIN = 0.7f; // Extra brightness at the flare's centre.
 	private static final float HEIGHT_MIN = 0.88f; // Ray top at its dimmest, relative to the nominal height...
 	private static final float HEIGHT_MAX = 1.12f; // ...and at its brightest.
+	private static final float HEIGHT_WAVE_LENGTH_STEPS = 18.0f; // Distance between two tall crests along a chain, in cells.
+	private static final float HEIGHT_WAVE_PERIOD = 11.0f; // Seconds for a tall crest to travel one wavelength.
+	private static final float HEIGHT_WAVE_MIN = 0.6f; // Height (and so where it fades out) in a low trough, x nominal...
+	private static final float HEIGHT_WAVE_MAX = 1.2f; // ...and on a high crest.
 	private static final float TWO_PI = (float) (Math.PI * 2);
 	private static final float WAVE_FREQ = TWO_PI / WAVE_LENGTH_STEPS;
 	private static final float WAVE_RATE = TWO_PI / WAVE_PERIOD;
+	private static final float HEIGHT_WAVE_FREQ = TWO_PI / HEIGHT_WAVE_LENGTH_STEPS;
+	private static final float HEIGHT_WAVE_RATE = TWO_PI / HEIGHT_WAVE_PERIOD;
 	private static final float SHIMMER_RATE_FAST = TWO_PI / SHIMMER_PERIOD_FAST;
 	private static final float SHIMMER_RATE_SLOW = TWO_PI / SHIMMER_PERIOD_SLOW;
 
@@ -68,6 +75,7 @@ public final class AuroraRibbon {
 	private final int patchCellZ;
 	private final float baseY;
 	private final boolean[][] occupied;
+	private final float[][] appearAt; // Per cell: the snake's threshold, 2 = empty. Shown while below the frequency.
 	private final List<Segment> segments;
 
 	public AuroraRibbon(Random random, int patchCellX, int patchCellZ) {
@@ -75,14 +83,15 @@ public final class AuroraRibbon {
 		this.patchCellZ = patchCellZ;
 		this.baseY = BASE_Y + random.nextFloat() * BASE_Y_VARIATION;
 		this.occupied = new boolean[PATCH_CELLS][PATCH_CELLS];
-		this.segments = createRibbons(random, occupied);
+		this.appearAt = new float[PATCH_CELLS][PATCH_CELLS];
+		for (float[] row : appearAt) Arrays.fill(row, 2.0f);
+		this.segments = createRibbons(random, occupied, appearAt);
 	}
 
-	private static List<Segment> createRibbons(Random random, boolean[][] occupied) {
+	private static List<Segment> createRibbons(Random random, boolean[][] occupied, float[][] appearAt) {
 		List<Segment> result = new ArrayList<>();
-		int count = MIN_RIBBONS + random.nextInt(MAX_RIBBONS - MIN_RIBBONS + 1);
 
-		for (int ribbon = 0; ribbon < count; ribbon++) {
+		for (int ribbon = 0; ribbon < MAX_RIBBONS; ribbon++) {
 			List<Cell> path = null;
 			for (int attempt = 0; attempt < START_ATTEMPTS; attempt++) {
 				int x = EDGE_MARGIN + random.nextInt(PATCH_CELLS - EDGE_MARGIN * 2);
@@ -103,11 +112,13 @@ public final class AuroraRibbon {
 			float tint = 0.25f + random.nextFloat() * 0.5f;
 			float chainHeight = 0.88f + random.nextFloat() * 0.24f;
 			float chainBrightness = 0.97f + random.nextFloat() * 0.03f;
+			float appear = random.nextFloat(); // 0..1, shown when the frequency setting is above it.
 
 			for (int step = 0; step < path.size(); step++) {
 				Cell cell = path.get(step);
 				occupied[cell.x][cell.z] = true;
-				result.add(new Segment(cell.x, cell.z,
+				appearAt[cell.x][cell.z] = appear;
+				result.add(new Segment(cell.x, cell.z, appear,
 					chainHeight * (0.96f + random.nextFloat() * 0.08f),
 					chainBrightness * (0.99f + random.nextFloat() * 0.01f),
 					step, phase, random.nextFloat() * 0.7f, tint));
@@ -234,6 +245,16 @@ public final class AuroraRibbon {
 		return ambient + FLARE_GAIN * (float) Math.exp(-d * d);
 	}
 
+	/**
+	 * Height multiplier of one ray (HEIGHT_WAVE_MIN..HEIGHT_WAVE_MAX): its own slow wave along the chain, not tied to
+	 * the brightness wave. The ray's top, and so the place where it fades to transparent, rises and sinks with it.
+	 */
+	static float heightWave(int step, float phase, float time) {
+		float crest = (float) Math.sin(step * HEIGHT_WAVE_FREQ - time * HEIGHT_WAVE_RATE + phase * 2.3f + 1.3f);
+		float drift = (float) Math.sin(step * 0.11f + time * 0.21f + phase * 0.7f);
+		return lerp(HEIGHT_WAVE_MIN, HEIGHT_WAVE_MAX, 0.5f + 0.5f * (0.7f * crest + 0.3f * drift));
+	}
+
 	public void render(VertexConsumer out, Matrix4f matrix,
 			double camX, double camY, double camZ, float time, float fade) {
 		float cellSize = SkyboxConfig.auroraGridCellSize;
@@ -241,8 +262,10 @@ public final class AuroraRibbon {
 		float halfCell = cellSize * 0.5f;
 		float brightness = SkyboxConfig.auroraBrightness;
 		boolean flares = SkyboxConfig.auroraFlares;
+		float frequency = SkyboxConfig.auroraFrequency;
 
 		for (Segment segment : segments) {
+			if (segment.appear >= frequency) continue;
 			float activity = Math.min(1.0f, activity(segment.step, segment.phase, segment.localPhase, time, flares));
 			float strength = fade * brightness * segment.brightness * activity;
 			if (strength < 0.004f) continue;
@@ -256,7 +279,8 @@ public final class AuroraRibbon {
 			float z1 = (float) (centerZ + halfCell - camZ);
 			float bottom = baseY - (float) camY;
 			// Brighter rays stretch a little higher; the top is faded out, so the uneven skyline stays invisible.
-			float top = bottom + height * segment.heightScale * lerp(HEIGHT_MIN, HEIGHT_MAX, activity);
+			float top = bottom + height * segment.heightScale * lerp(HEIGHT_MIN, HEIGHT_MAX, activity)
+				* heightWave(segment.step, segment.phase, time);
 
 			drawPrism(out, matrix, x0, x1, z0, z1, bottom, top, strength, segment.tint,
 				hasCell(segment.x - 1, segment.z), hasCell(segment.x + 1, segment.z),
@@ -265,7 +289,7 @@ public final class AuroraRibbon {
 	}
 
 	private boolean hasCell(int x, int z) {
-		return x >= 0 && x < PATCH_CELLS && z >= 0 && z < PATCH_CELLS && occupied[x][z];
+		return x >= 0 && x < PATCH_CELLS && z >= 0 && z < PATCH_CELLS && appearAt[x][z] < SkyboxConfig.auroraFrequency;
 	}
 
 	private static void drawPrism(VertexConsumer out, Matrix4f matrix,
@@ -349,6 +373,6 @@ public final class AuroraRibbon {
 
 	private record Cell(int x, int z) {}
 	private record Color(float r, float g, float b) {}
-	private record Segment(int x, int z, float heightScale, float brightness,
+	private record Segment(int x, int z, float appear, float heightScale, float brightness,
 		int step, float phase, float localPhase, float tint) {}
 }

@@ -20,7 +20,7 @@ public final class SkyboxConfigScreen extends Screen {
 	private static final int COLUMN_WIDTH = 170;
 	private static final int ROW = 24;
 	private static final int TOP = 40;
-	private static final int AURORA_ROWS = 7;
+	private static final int AURORA_ROWS = 8;
 
 	private final Screen parent;
 
@@ -49,6 +49,8 @@ public final class SkyboxConfigScreen extends Screen {
 			SkyboxConfig.cometPercent / 100.0, v -> SkyboxConfig.cometPercent = (int) Math.round(v * 100.0)));
 		addRenderableWidget(toggle(left, TOP + 3 * ROW, w, "skybox-overhaul.config.fan",
 			() -> SkyboxConfig.hideVanillaFan, v -> SkyboxConfig.hideVanillaFan = v, () -> {}));
+		addRenderableWidget(toggle(left, TOP + 4 * ROW, w, "skybox-overhaul.config.celestials",
+			() -> SkyboxConfig.customCelestials, v -> SkyboxConfig.customCelestials = v, () -> {}));
 
 		// Aurora column: the switch first, the rest is dimmed while it is off.
 		boolean on = SkyboxConfig.auroraEnabled;
@@ -63,9 +65,11 @@ public final class SkyboxConfigScreen extends Screen {
 		addAurora(toggle(right, TOP + 4 * ROW, w, "skybox-overhaul.config.aurora-flares",
 			() -> SkyboxConfig.auroraFlares, v -> SkyboxConfig.auroraFlares = v, () -> {}), on);
 		addAurora(new NumberSlider(right, TOP + 5 * ROW, w, "skybox-overhaul.config.aurora-grid",
-			SkyboxConfig.auroraGridCellSize, 1.5, 8.0, " blocks", 1, v -> SkyboxConfig.auroraGridCellSize = (float) v), on);
+			SkyboxConfig.auroraGridCellSize, 8.0, 32.0, " blocks", 0, v -> SkyboxConfig.auroraGridCellSize = (float) v), on);
 		addAurora(new NumberSlider(right, TOP + 6 * ROW, w, "skybox-overhaul.config.aurora-height",
 			SkyboxConfig.auroraHeight, 40.0, 180.0, " blocks", 0, v -> SkyboxConfig.auroraHeight = (float) v), on);
+		addAurora(new Percent(right, TOP + 7 * ROW, w, "skybox-overhaul.config.aurora-frequency",
+			SkyboxConfig.auroraFrequency, v -> SkyboxConfig.auroraFrequency = (float) v), on);
 
 		int bottom = Math.max(this.height - 28, TOP + AURORA_ROWS * ROW + 4);
 		addRenderableWidget(Button.builder(Component.translatable("skybox-overhaul.config.reset"), b -> {

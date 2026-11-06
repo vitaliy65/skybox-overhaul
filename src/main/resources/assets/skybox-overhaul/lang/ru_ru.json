@@ -6,6 +6,7 @@
 	"skybox-overhaul.config.sunset": "Свечение заката: %s",
 	"skybox-overhaul.config.comets": "Шанс появления кометы: %s",
 	"skybox-overhaul.config.fan": "Скрыть веер заката: %s",
+	"skybox-overhaul.config.celestials": "Своё солнце и луна: %s",
 	"skybox-overhaul.config.reset": "Сбросить",
 	"skybox-overhaul.config.aurora": "Сияние: %s",
 	"skybox-overhaul.config.aurora-cold": "Только в холодных биомах: %s",
@@ -13,5 +14,6 @@
 	"skybox-overhaul.config.aurora-speed": "Скорость анимации: %s",
 	"skybox-overhaul.config.aurora-flares": "Вспышки: %s",
 	"skybox-overhaul.config.aurora-grid": "Ячейка сетки: %s",
-	"skybox-overhaul.config.aurora-height": "Высота столбов: %s"
+	"skybox-overhaul.config.aurora-height": "Высота столбов: %s",
+	"skybox-overhaul.config.aurora-frequency": "Частота змеек: %s"
 }

@@ -18,10 +18,12 @@ public final class SkyboxConfig {
 	public static float sunsetIntensity = 1.0F;
 	/** Hide vanilla's blocky sunrise/sunset fan (our layers replace it). */
 	public static boolean hideVanillaFan = true;
+	/** true = our sun and moon textures (Celestials); false = vanilla's. */
+	public static boolean customCelestials = true;
 	/** Chance (0..100) that a given in-game day has a comet. */
 	public static int cometPercent = 30;
-	/** Horizontal size of one aurora grid cell in blocks. */
-	public static float auroraGridCellSize = 3.0F;
+	/** Horizontal size of one aurora grid cell in blocks, 8..32. */
+	public static float auroraGridCellSize = 16.0F;
 	/** Nominal height of aurora prisms in blocks; individual cells vary around this value. */
 	public static float auroraHeight = 90.0F;
 	/** Master switch for the aurora (it fades out/in over a few seconds). */
@@ -34,6 +36,8 @@ public final class SkyboxConfig {
 	public static float auroraSpeed = 1.0F;
 	/** Occasional bright pulses running along the aurora ribbons. */
 	public static boolean auroraFlares = true;
+	/** How many of the generated aurora snakes are shown, 0..1 (0 = none, 1 = all). */
+	public static float auroraFrequency = 0.4F;
 
 	private SkyboxConfig() {}
 
@@ -41,14 +45,16 @@ public final class SkyboxConfig {
 		paletteStrength = 0.8F;
 		sunsetIntensity = 1.0F;
 		hideVanillaFan = true;
+		customCelestials = true;
 		cometPercent = 30;
-		auroraGridCellSize = 3.0F;
+		auroraGridCellSize = 16.0F;
 		auroraHeight = 90.0F;
 		auroraEnabled = true;
 		auroraColdOnly = true;
 		auroraBrightness = 1.0F;
 		auroraSpeed = 1.0F;
 		auroraFlares = true;
+		auroraFrequency = 0.4F;
 	}
 
 	/** Missing file, bad numbers or out-of-range values fall back to the defaults / get clamped. */
@@ -63,11 +69,13 @@ public final class SkyboxConfig {
 		paletteStrength = num(p, "paletteStrength", paletteStrength, 1.0F);
 		sunsetIntensity = num(p, "sunsetIntensity", sunsetIntensity, 1.0F);
 		cometPercent = Math.round(num(p, "cometPercent", cometPercent, 100.0F));
-		auroraGridCellSize = rangedNum(p, "auroraGridCellSize", auroraGridCellSize, 8F, 32.0F);
+		auroraGridCellSize = rangedNum(p, "auroraGridCellSize", auroraGridCellSize, 8.0F, 32.0F);
+		auroraFrequency = rangedNum(p, "auroraFrequency", auroraFrequency, 0.0F, 1.0F);
 		auroraHeight = rangedNum(p, "auroraHeight", auroraHeight, 40.0F, 180.0F);
 		auroraBrightness = rangedNum(p, "auroraBrightness", auroraBrightness, 0.0F, 1.0F);
 		auroraSpeed = rangedNum(p, "auroraSpeed", auroraSpeed, 0.25F, 2.0F);
 		hideVanillaFan = bool(p, "hideVanillaFan", hideVanillaFan);
+		customCelestials = bool(p, "customCelestials", customCelestials);
 		auroraEnabled = bool(p, "auroraEnabled", auroraEnabled);
 		auroraColdOnly = bool(p, "auroraColdOnly", auroraColdOnly);
 		auroraFlares = bool(p, "auroraFlares", auroraFlares);
@@ -78,6 +86,7 @@ public final class SkyboxConfig {
 		p.setProperty("paletteStrength", String.valueOf(paletteStrength));
 		p.setProperty("sunsetIntensity", String.valueOf(sunsetIntensity));
 		p.setProperty("hideVanillaFan", String.valueOf(hideVanillaFan));
+		p.setProperty("customCelestials", String.valueOf(customCelestials));
 		p.setProperty("cometPercent", String.valueOf(cometPercent));
 		p.setProperty("auroraGridCellSize", String.valueOf(auroraGridCellSize));
 		p.setProperty("auroraHeight", String.valueOf(auroraHeight));
@@ -86,6 +95,7 @@ public final class SkyboxConfig {
 		p.setProperty("auroraBrightness", String.valueOf(auroraBrightness));
 		p.setProperty("auroraSpeed", String.valueOf(auroraSpeed));
 		p.setProperty("auroraFlares", String.valueOf(auroraFlares));
+		p.setProperty("auroraFrequency", String.valueOf(auroraFrequency));
 		try (Writer w = Files.newBufferedWriter(file)) {
 			p.store(w, "Skybox Overhaul");
 		} catch (IOException e) {
@@ -122,35 +132,37 @@ public final class SkyboxConfig {
 		paletteStrength = 0.25F;
 		sunsetIntensity = 0.5F;
 		hideVanillaFan = false;
+		customCelestials = false;
 		cometPercent = 77;
-		auroraGridCellSize = 4.5F;
+		auroraGridCellSize = 20.5F;
 		auroraHeight = 120.0F;
 		auroraEnabled = false;
 		auroraColdOnly = false;
 		auroraBrightness = 0.4F;
 		auroraSpeed = 1.5F;
 		auroraFlares = false;
+		auroraFrequency = 0.75F;
 		save(f);
 		reset();
 		load(f);
-		check(paletteStrength == 0.25F && sunsetIntensity == 0.5F && !hideVanillaFan && cometPercent == 77
-			&& auroraGridCellSize == 4.5F && auroraHeight == 120.0F
+		check(paletteStrength == 0.25F && sunsetIntensity == 0.5F && !hideVanillaFan && !customCelestials && cometPercent == 77
+			&& auroraGridCellSize == 20.5F && auroraHeight == 120.0F
 			&& !auroraEnabled && !auroraColdOnly && auroraBrightness == 0.4F && auroraSpeed == 1.5F
-			&& !auroraFlares, "round trip");
+			&& !auroraFlares && auroraFrequency == 0.75F, "round trip");
 
 		Files.writeString(f, "paletteStrength=9\nsunsetIntensity=abc\ncometPercent=-5\nauroraGridCellSize=0.2\nauroraHeight=999\n"
-			+ "auroraEnabled=maybe\nauroraBrightness=9\nauroraSpeed=0.01\nauroraFlares=\n");
+			+ "auroraEnabled=maybe\nauroraBrightness=9\nauroraSpeed=0.01\nauroraFlares=\nauroraFrequency=7\n");
 		load(f);
-		check(paletteStrength == 1.0F && sunsetIntensity == 1.0F && cometPercent == 0 && hideVanillaFan
-			&& auroraGridCellSize == 1.5F && auroraHeight == 180.0F
+		check(paletteStrength == 1.0F && sunsetIntensity == 1.0F && cometPercent == 0 && hideVanillaFan && customCelestials
+			&& auroraGridCellSize == 8.0F && auroraHeight == 180.0F
 			&& auroraEnabled && auroraColdOnly && auroraBrightness == 1.0F && auroraSpeed == 0.25F
-			&& auroraFlares, "clamp + defaults");
+			&& auroraFlares && auroraFrequency == 1.0F, "clamp + defaults");
 
 		Files.delete(f);
 		load(f);
-		check(paletteStrength == 0.8F && cometPercent == 30 && auroraGridCellSize == 3.0F
+		check(paletteStrength == 0.8F && cometPercent == 30 && auroraGridCellSize == 16.0F
 			&& auroraHeight == 90.0F && auroraEnabled && auroraColdOnly && auroraBrightness == 1.0F
-			&& auroraSpeed == 1.0F && auroraFlares, "missing file = defaults");
+			&& auroraSpeed == 1.0F && auroraFlares && auroraFrequency == 0.4F, "missing file = defaults");
 		System.out.println("SkyboxConfig OK");
 	}
 

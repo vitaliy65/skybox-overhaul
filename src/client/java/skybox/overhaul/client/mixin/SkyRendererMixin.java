@@ -7,12 +7,14 @@ import net.minecraft.client.renderer.SkyRenderer;
 import net.minecraft.client.renderer.state.level.SkyRenderState;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.resources.model.sprite.AtlasManager;
+import net.minecraft.world.level.MoonPhase;
 import net.minecraft.world.level.dimension.DimensionType.Skybox;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import skybox.overhaul.client.Celestials;
 import skybox.overhaul.client.HorizonHaze;
 import skybox.overhaul.client.NightSky;
 import skybox.overhaul.client.SkyPalette;
@@ -28,12 +30,33 @@ public class SkyRendererMixin {
 	private HorizonHaze skybox$haze;
 	@Unique
 	private TwilightGlow skybox$glow;
+	@Unique
+	private Celestials skybox$celestials;
 
 	@Inject(method = "<init>", at = @At("TAIL"))
 	private void skybox$initNight(TextureManager textureManager, AtlasManager atlasManager, CallbackInfo ci) {
 		skybox$night = new NightSky();
 		skybox$haze = new HorizonHaze();
 		skybox$glow = new TwilightGlow();
+		skybox$celestials = new Celestials();
+	}
+
+	// Custom sun/moon textures instead of vanilla's (toggle in the config screen). The sun pose is always captured:
+	// the moon is drawn in the same frame. Vanilla calls renderSun before renderMoon.
+	@Inject(method = "renderSun", at = @At("HEAD"), cancellable = true)
+	private void skybox$sun(float alpha, PoseStack poseStack, CallbackInfo ci) {
+		skybox$celestials.captureSunPose(poseStack.last().pose());
+		if (SkyboxConfig.customCelestials) {
+			skybox$celestials.renderSun(alpha);
+			ci.cancel();
+		}
+	}
+
+	@Inject(method = "renderMoon", at = @At("HEAD"), cancellable = true)
+	private void skybox$moon(MoonPhase moonPhase, float alpha, PoseStack poseStack, CallbackInfo ci) {
+		if (SkyboxConfig.customCelestials && skybox$celestials.renderMoon(moonPhase, alpha)) {
+			ci.cancel();
+		}
 	}
 
 	// ponytail: vanilla star buffer is still built, just never drawn; cancel the build if the VRAM matters.
@@ -48,6 +71,7 @@ public class SkyRendererMixin {
 		skybox$night.close();
 		skybox$haze.close();
 		skybox$glow.close();
+		skybox$celestials.close();
 	}
 
 	// After the disc (gradient + haze, then our twilight glow), before vanilla sunrise fan / sun / moon / stars.
