@@ -14,8 +14,8 @@ import net.minecraft.world.phys.Vec3;
  * renderer owns its own texture data, mesh cache and GPU buffers.
  */
 public final class CloudLayers {
-    private static final float MIDDLE_HEIGHT_OFFSET = 32.0F;
-    private static final float UPPER_HEIGHT_OFFSET = 64.0F;
+    private static final float MIDDLE_HEIGHT_OFFSET = 48.0F;
+    private static final float UPPER_HEIGHT_OFFSET = 112.0F;
     private static final long MIDDLE_PHASE_OFFSET = 137L;
     private static final long UPPER_PHASE_OFFSET = 281L;
     private static final float MIDDLE_OPACITY = 0.58F;
