@@ -1,16 +1,27 @@
 package skybox.overhaul.client;
 
 import java.util.Locale;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
-/** Mod Menu config screen on vanilla widgets only (no Cloth Config). Changes apply live, saved on close. */
+/**
+ * Mod Menu config screen on vanilla widgets only (no Cloth Config). Two columns: sky on the left, aurora on the
+ * right. Changes apply live, saved on close. The aurora options grey out while the aurora is switched off.
+ */
 public final class SkyboxConfigScreen extends Screen {
+	private static final int COLUMN_WIDTH = 170;
+	private static final int ROW = 24;
+	private static final int TOP = 40;
+	private static final int AURORA_ROWS = 7;
+
 	private final Screen parent;
 
 	public SkyboxConfigScreen(Screen parent) {
@@ -20,35 +31,68 @@ public final class SkyboxConfigScreen extends Screen {
 
 	@Override
 	protected void init() {
-		int x = this.width / 2 - 100;
-		int y = this.height / 4;
-		addRenderableWidget(new StringWidget(x, 20, 200, 9, this.title, this.font));
-		addRenderableWidget(new Percent(x, y, "skybox-overhaul.config.palette", SkyboxConfig.paletteStrength,
+		int w = COLUMN_WIDTH;
+		int left = this.width / 2 - w - 4;
+		int right = this.width / 2 + 4;
+		addRenderableWidget(new StringWidget(left, 10, 2 * w + 8, 9, this.title, this.font));
+		addRenderableWidget(new StringWidget(left, 26, w, 9,
+			Component.translatable("skybox-overhaul.config.section.sky"), this.font));
+		addRenderableWidget(new StringWidget(right, 26, w, 9,
+			Component.translatable("skybox-overhaul.config.section.aurora"), this.font));
+
+		// Sky column.
+		addRenderableWidget(new Percent(left, TOP, w, "skybox-overhaul.config.palette", SkyboxConfig.paletteStrength,
 			v -> SkyboxConfig.paletteStrength = (float) v));
-		addRenderableWidget(new Percent(x, y + 24, "skybox-overhaul.config.sunset", SkyboxConfig.sunsetIntensity,
+		addRenderableWidget(new Percent(left, TOP + ROW, w, "skybox-overhaul.config.sunset", SkyboxConfig.sunsetIntensity,
 			v -> SkyboxConfig.sunsetIntensity = (float) v));
-		addRenderableWidget(new Percent(x, y + 48, "skybox-overhaul.config.comets", SkyboxConfig.cometPercent / 100.0,
-			v -> SkyboxConfig.cometPercent = (int) Math.round(v * 100.0)));
-		addRenderableWidget(Button.builder(fanLabel(), b -> {
-			SkyboxConfig.hideVanillaFan = !SkyboxConfig.hideVanillaFan;
-			b.setMessage(fanLabel());
-		}).bounds(x, y + 72, 200, 20).build());
-		addRenderableWidget(new NumberSlider(x, y + 96, "skybox-overhaul.config.aurora-grid",
-			SkyboxConfig.auroraGridCellSize, 1.5, 8.0, " blocks", false,
-			v -> SkyboxConfig.auroraGridCellSize = (float) v));
-		addRenderableWidget(new NumberSlider(x, y + 120, "skybox-overhaul.config.aurora-height",
-			SkyboxConfig.auroraHeight, 40.0, 180.0, " blocks", true,
-			v -> SkyboxConfig.auroraHeight = (float) v));
+		addRenderableWidget(new Percent(left, TOP + 2 * ROW, w, "skybox-overhaul.config.comets",
+			SkyboxConfig.cometPercent / 100.0, v -> SkyboxConfig.cometPercent = (int) Math.round(v * 100.0)));
+		addRenderableWidget(toggle(left, TOP + 3 * ROW, w, "skybox-overhaul.config.fan",
+			() -> SkyboxConfig.hideVanillaFan, v -> SkyboxConfig.hideVanillaFan = v, () -> {}));
+
+		// Aurora column: the switch first, the rest is dimmed while it is off.
+		boolean on = SkyboxConfig.auroraEnabled;
+		addRenderableWidget(toggle(right, TOP, w, "skybox-overhaul.config.aurora",
+			() -> SkyboxConfig.auroraEnabled, v -> SkyboxConfig.auroraEnabled = v, this::rebuildWidgets));
+		addAurora(toggle(right, TOP + ROW, w, "skybox-overhaul.config.aurora-cold",
+			() -> SkyboxConfig.auroraColdOnly, v -> SkyboxConfig.auroraColdOnly = v, () -> {}), on);
+		addAurora(new Percent(right, TOP + 2 * ROW, w, "skybox-overhaul.config.aurora-brightness",
+			SkyboxConfig.auroraBrightness, v -> SkyboxConfig.auroraBrightness = (float) v), on);
+		addAurora(new NumberSlider(right, TOP + 3 * ROW, w, "skybox-overhaul.config.aurora-speed",
+			SkyboxConfig.auroraSpeed, 0.25, 2.0, "x", 2, v -> SkyboxConfig.auroraSpeed = (float) v), on);
+		addAurora(toggle(right, TOP + 4 * ROW, w, "skybox-overhaul.config.aurora-flares",
+			() -> SkyboxConfig.auroraFlares, v -> SkyboxConfig.auroraFlares = v, () -> {}), on);
+		addAurora(new NumberSlider(right, TOP + 5 * ROW, w, "skybox-overhaul.config.aurora-grid",
+			SkyboxConfig.auroraGridCellSize, 1.5, 8.0, " blocks", 1, v -> SkyboxConfig.auroraGridCellSize = (float) v), on);
+		addAurora(new NumberSlider(right, TOP + 6 * ROW, w, "skybox-overhaul.config.aurora-height",
+			SkyboxConfig.auroraHeight, 40.0, 180.0, " blocks", 0, v -> SkyboxConfig.auroraHeight = (float) v), on);
+
+		int bottom = Math.max(this.height - 28, TOP + AURORA_ROWS * ROW + 4);
 		addRenderableWidget(Button.builder(Component.translatable("skybox-overhaul.config.reset"), b -> {
 			SkyboxConfig.reset();
 			rebuildWidgets();
-		}).bounds(x, y + 152, 98, 20).build());
-		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose()).bounds(x + 102, y + 152, 98, 20).build());
+		}).bounds(this.width / 2 - 102, bottom, 100, 20).build());
+		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose())
+			.bounds(this.width / 2 + 2, bottom, 100, 20).build());
 	}
 
-	private static Component fanLabel() {
-		return Component.translatable("skybox-overhaul.config.fan",
-			Component.translatable(SkyboxConfig.hideVanillaFan ? "options.on" : "options.off"));
+	private <T extends AbstractWidget> void addAurora(T widget, boolean active) {
+		widget.active = active;
+		addRenderableWidget(widget);
+	}
+
+	/** ON/OFF button; the label is the lang key with the state as %s. {@code after} runs once the value changed. */
+	private static Button toggle(int x, int y, int w, String key, BooleanSupplier get, Consumer<Boolean> set,
+			Runnable after) {
+		return Button.builder(toggleLabel(key, get.getAsBoolean()), b -> {
+			set.accept(!get.getAsBoolean());
+			b.setMessage(toggleLabel(key, get.getAsBoolean()));
+			after.run();
+		}).bounds(x, y, w, 20).build();
+	}
+
+	private static Component toggleLabel(String key, boolean on) {
+		return Component.translatable(key, Component.translatable(on ? "options.on" : "options.off"));
 	}
 
 	@Override
@@ -57,23 +101,23 @@ public final class SkyboxConfigScreen extends Screen {
 		this.minecraft.setScreen(this.parent);
 	}
 
-	/** Slider whose displayed/stored value is mapped to a configurable numeric range. */
+	/** Slider whose displayed/stored value is mapped to a numeric range, shown with a fixed number of decimals. */
 	private static final class NumberSlider extends AbstractSliderButton {
 		private final String key;
 		private final double min;
 		private final double max;
 		private final String suffix;
-		private final boolean integer;
+		private final int decimals;
 		private final DoubleConsumer apply;
 
-		NumberSlider(int x, int y, String key, double value, double min, double max,
-				String suffix, boolean integer, DoubleConsumer apply) {
-			super(x, y, 200, 20, Component.empty(), (value - min) / (max - min));
+		NumberSlider(int x, int y, int w, String key, double value, double min, double max,
+				String suffix, int decimals, DoubleConsumer apply) {
+			super(x, y, w, 20, Component.empty(), (value - min) / (max - min));
 			this.key = key;
 			this.min = min;
 			this.max = max;
 			this.suffix = suffix;
-			this.integer = integer;
+			this.decimals = decimals;
 			this.apply = apply;
 			updateMessage();
 		}
@@ -84,9 +128,7 @@ public final class SkyboxConfigScreen extends Screen {
 
 		@Override
 		protected void updateMessage() {
-			double actual = actualValue();
-			String formatted = integer ? Long.toString(Math.round(actual))
-				: String.format(Locale.ROOT, "%.1f", actual);
+			String formatted = String.format(Locale.ROOT, "%." + decimals + "f", actualValue());
 			setMessage(Component.translatable(key, formatted + suffix));
 		}
 
@@ -101,8 +143,8 @@ public final class SkyboxConfigScreen extends Screen {
 		private final String key;
 		private final DoubleConsumer apply;
 
-		Percent(int x, int y, String key, double value, DoubleConsumer apply) {
-			super(x, y, 200, 20, Component.empty(), value);
+		Percent(int x, int y, int w, String key, double value, DoubleConsumer apply) {
+			super(x, y, w, 20, Component.empty(), value);
 			this.key = key;
 			this.apply = apply;
 			updateMessage();

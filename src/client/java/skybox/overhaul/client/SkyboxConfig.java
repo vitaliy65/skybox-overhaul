@@ -24,6 +24,16 @@ public final class SkyboxConfig {
 	public static float auroraGridCellSize = 3.0F;
 	/** Nominal height of aurora prisms in blocks; individual cells vary around this value. */
 	public static float auroraHeight = 90.0F;
+	/** Master switch for the aurora (it fades out/in over a few seconds). */
+	public static boolean auroraEnabled = true;
+	/** true = aurora only in cold biomes (vanilla-like); false = in every biome at night. */
+	public static boolean auroraColdOnly = true;
+	/** Overall aurora opacity, 0..1. */
+	public static float auroraBrightness = 1.0F;
+	/** Animation speed multiplier, 0.25..2. */
+	public static float auroraSpeed = 1.0F;
+	/** Occasional bright pulses running along the aurora ribbons. */
+	public static boolean auroraFlares = true;
 
 	private SkyboxConfig() {}
 
@@ -34,6 +44,11 @@ public final class SkyboxConfig {
 		cometPercent = 30;
 		auroraGridCellSize = 3.0F;
 		auroraHeight = 90.0F;
+		auroraEnabled = true;
+		auroraColdOnly = true;
+		auroraBrightness = 1.0F;
+		auroraSpeed = 1.0F;
+		auroraFlares = true;
 	}
 
 	/** Missing file, bad numbers or out-of-range values fall back to the defaults / get clamped. */
@@ -48,9 +63,14 @@ public final class SkyboxConfig {
 		paletteStrength = num(p, "paletteStrength", paletteStrength, 1.0F);
 		sunsetIntensity = num(p, "sunsetIntensity", sunsetIntensity, 1.0F);
 		cometPercent = Math.round(num(p, "cometPercent", cometPercent, 100.0F));
-		auroraGridCellSize = rangedNum(p, "auroraGridCellSize", auroraGridCellSize, 1.5F, 8.0F);
+		auroraGridCellSize = rangedNum(p, "auroraGridCellSize", auroraGridCellSize, 8F, 32.0F);
 		auroraHeight = rangedNum(p, "auroraHeight", auroraHeight, 40.0F, 180.0F);
-		hideVanillaFan = Boolean.parseBoolean(p.getProperty("hideVanillaFan", String.valueOf(hideVanillaFan)));
+		auroraBrightness = rangedNum(p, "auroraBrightness", auroraBrightness, 0.0F, 1.0F);
+		auroraSpeed = rangedNum(p, "auroraSpeed", auroraSpeed, 0.25F, 2.0F);
+		hideVanillaFan = bool(p, "hideVanillaFan", hideVanillaFan);
+		auroraEnabled = bool(p, "auroraEnabled", auroraEnabled);
+		auroraColdOnly = bool(p, "auroraColdOnly", auroraColdOnly);
+		auroraFlares = bool(p, "auroraFlares", auroraFlares);
 	}
 
 	public static void save(Path file) {
@@ -61,11 +81,22 @@ public final class SkyboxConfig {
 		p.setProperty("cometPercent", String.valueOf(cometPercent));
 		p.setProperty("auroraGridCellSize", String.valueOf(auroraGridCellSize));
 		p.setProperty("auroraHeight", String.valueOf(auroraHeight));
+		p.setProperty("auroraEnabled", String.valueOf(auroraEnabled));
+		p.setProperty("auroraColdOnly", String.valueOf(auroraColdOnly));
+		p.setProperty("auroraBrightness", String.valueOf(auroraBrightness));
+		p.setProperty("auroraSpeed", String.valueOf(auroraSpeed));
+		p.setProperty("auroraFlares", String.valueOf(auroraFlares));
 		try (Writer w = Files.newBufferedWriter(file)) {
 			p.store(w, "Skybox Overhaul");
 		} catch (IOException e) {
 			System.err.println("[skybox-overhaul] could not save config: " + e); // settings still apply this session
 		}
+	}
+
+	/** Only "true"/"false" count; anything else (typo, empty) keeps the default instead of silently meaning false. */
+	private static boolean bool(Properties p, String key, boolean def) {
+		String v = p.getProperty(key);
+		return v == null || !(v.equalsIgnoreCase("true") || v.equalsIgnoreCase("false")) ? def : Boolean.parseBoolean(v);
 	}
 
 	private static float rangedNum(Properties p, String key, float def, float min, float max) {
@@ -94,21 +125,32 @@ public final class SkyboxConfig {
 		cometPercent = 77;
 		auroraGridCellSize = 4.5F;
 		auroraHeight = 120.0F;
+		auroraEnabled = false;
+		auroraColdOnly = false;
+		auroraBrightness = 0.4F;
+		auroraSpeed = 1.5F;
+		auroraFlares = false;
 		save(f);
 		reset();
 		load(f);
 		check(paletteStrength == 0.25F && sunsetIntensity == 0.5F && !hideVanillaFan && cometPercent == 77
-			&& auroraGridCellSize == 4.5F && auroraHeight == 120.0F, "round trip");
+			&& auroraGridCellSize == 4.5F && auroraHeight == 120.0F
+			&& !auroraEnabled && !auroraColdOnly && auroraBrightness == 0.4F && auroraSpeed == 1.5F
+			&& !auroraFlares, "round trip");
 
-		Files.writeString(f, "paletteStrength=9\nsunsetIntensity=abc\ncometPercent=-5\nauroraGridCellSize=0.2\nauroraHeight=999\n");
+		Files.writeString(f, "paletteStrength=9\nsunsetIntensity=abc\ncometPercent=-5\nauroraGridCellSize=0.2\nauroraHeight=999\n"
+			+ "auroraEnabled=maybe\nauroraBrightness=9\nauroraSpeed=0.01\nauroraFlares=\n");
 		load(f);
 		check(paletteStrength == 1.0F && sunsetIntensity == 1.0F && cometPercent == 0 && hideVanillaFan
-			&& auroraGridCellSize == 1.5F && auroraHeight == 180.0F, "clamp + defaults");
+			&& auroraGridCellSize == 1.5F && auroraHeight == 180.0F
+			&& auroraEnabled && auroraColdOnly && auroraBrightness == 1.0F && auroraSpeed == 0.25F
+			&& auroraFlares, "clamp + defaults");
 
 		Files.delete(f);
 		load(f);
 		check(paletteStrength == 0.8F && cometPercent == 30 && auroraGridCellSize == 3.0F
-			&& auroraHeight == 90.0F, "missing file = defaults");
+			&& auroraHeight == 90.0F && auroraEnabled && auroraColdOnly && auroraBrightness == 1.0F
+			&& auroraSpeed == 1.0F && auroraFlares, "missing file = defaults");
 		System.out.println("SkyboxConfig OK");
 	}
 

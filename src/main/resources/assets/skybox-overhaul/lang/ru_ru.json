@@ -1,10 +1,17 @@
 {
 	"skybox-overhaul.config.title": "Skybox Overhaul",
+	"skybox-overhaul.config.section.sky": "Небо",
+	"skybox-overhaul.config.section.aurora": "Полярное сияние",
 	"skybox-overhaul.config.palette": "Цвета неба: %s",
 	"skybox-overhaul.config.sunset": "Свечение заката: %s",
 	"skybox-overhaul.config.comets": "Шанс появления кометы: %s",
-	"skybox-overhaul.config.fan": "Скрыть стандартный веер заката: %s",
-	"skybox-overhaul.config.aurora-grid": "Размер ячейки сетки авроры: %s",
-	"skybox-overhaul.config.aurora-height": "Высота столбиков авроры: %s",
-	"skybox-overhaul.config.reset": "Сбросить"
+	"skybox-overhaul.config.fan": "Скрыть веер заката: %s",
+	"skybox-overhaul.config.reset": "Сбросить",
+	"skybox-overhaul.config.aurora": "Сияние: %s",
+	"skybox-overhaul.config.aurora-cold": "Только в холодных биомах: %s",
+	"skybox-overhaul.config.aurora-brightness": "Яркость: %s",
+	"skybox-overhaul.config.aurora-speed": "Скорость анимации: %s",
+	"skybox-overhaul.config.aurora-flares": "Вспышки: %s",
+	"skybox-overhaul.config.aurora-grid": "Ячейка сетки: %s",
+	"skybox-overhaul.config.aurora-height": "Высота столбов: %s"
 }

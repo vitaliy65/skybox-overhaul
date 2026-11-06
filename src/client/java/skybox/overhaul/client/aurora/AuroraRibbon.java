@@ -13,7 +13,7 @@ import java.util.Random;
 public final class AuroraRibbon {
 	// ======================== EDIT AURORA HERE ========================
 	// Cell size and pillar height are live sliders in Mod Menu (SkyboxConfig).
-	public static final int PATCH_CELLS = 48; // Patch width/depth, measured in grid cells.
+	public static final int PATCH_CELLS = 128; // Patch width/depth, measured in grid cells.
 
 	private static final int MIN_RIBBONS = 1;
 	private static final int MAX_RIBBONS = 2;
@@ -33,6 +33,26 @@ public final class AuroraRibbon {
 	private static final float CYAN_POSITION = 0.10f; // Full cyan at 10% height.
 	private static final float VIOLET_POSITION = 0.50f; // Full violet at 20%; remains to the top.
 	private static final float[] VERTICAL_STOPS = verticalStops();
+
+	// ---- Animation. Seconds are "animation seconds": the Mod Menu speed slider scales them. ----
+	private static final float WAVE_LENGTH_STEPS = 12.0f; // Distance between two bright crests along a chain, in cells.
+	private static final float WAVE_PERIOD = 7.0f; // Seconds for a crest to travel one wavelength.
+	private static final float WAVE_MIN = 0.35f; // Ray brightness in a wave trough (a crest is 1).
+	private static final float SHIMMER_DEPTH = 0.2f; // How much each ray flickers on its own (0 = not at all).
+	private static final float SHIMMER_PERIOD_FAST = 2.2f; // Every ray picks its own period between these two.
+	private static final float SHIMMER_PERIOD_SLOW = 5.0f;
+	private static final float FLARE_CYCLE_STEPS = 120.0f; // Longer than any chain: a flare crosses it, then a pause.
+	private static final float FLARE_SPEED = 4.0f; // Cells per second, so one cycle is 30 s.
+	private static final float FLARE_WIDTH = 6.0f; // Half-width of the bright band, in cells.
+	private static final float FLARE_LEAD = 15.0f; // The flare starts this far before the chain, so it never pops in.
+	private static final float FLARE_GAIN = 0.7f; // Extra brightness at the flare's centre.
+	private static final float HEIGHT_MIN = 0.88f; // Ray top at its dimmest, relative to the nominal height...
+	private static final float HEIGHT_MAX = 1.12f; // ...and at its brightest.
+	private static final float TWO_PI = (float) (Math.PI * 2);
+	private static final float WAVE_FREQ = TWO_PI / WAVE_LENGTH_STEPS;
+	private static final float WAVE_RATE = TWO_PI / WAVE_PERIOD;
+	private static final float SHIMMER_RATE_FAST = TWO_PI / SHIMMER_PERIOD_FAST;
+	private static final float SHIMMER_RATE_SLOW = TWO_PI / SHIMMER_PERIOD_SLOW;
 
 	// RGB values are 0..1. Edit these three colors to change the whole palette.
 	private static final Color GREEN = new Color(0.13f, 0.91f, 0.66f);
@@ -192,16 +212,39 @@ public final class AuroraRibbon {
 	}
 
 
+	/**
+	 * Brightness of one ray at a given time (pure maths, no rendering): about 0.28..1 on its own, up to about 1.7
+	 * inside a flare. Three layers: a wave running along the chain (two sines, so it never looks mechanical),
+	 * a slow independent shimmer per ray, and a rare bright pulse that sweeps the whole chain.
+	 */
+	static float activity(int step, float phase, float localPhase, float time, boolean flares) {
+		float crest = (float) Math.sin(step * WAVE_FREQ - time * WAVE_RATE + phase);
+		float drift = (float) Math.sin(step * 0.23f + time * 0.37f + phase * 1.7f);
+		float wave = 0.5f + 0.5f * (0.65f * crest + 0.35f * drift);
+
+		float rate = lerp(SHIMMER_RATE_SLOW, SHIMMER_RATE_FAST, localPhase / 0.7f);
+		float shimmer = 1.0f - SHIMMER_DEPTH * (0.5f + 0.5f * (float) Math.sin(time * rate + localPhase * 9.0f));
+
+		float ambient = lerp(WAVE_MIN, 1.0f, wave) * shimmer;
+		if (!flares) return ambient;
+
+		float cycle = time * FLARE_SPEED + phase * (FLARE_CYCLE_STEPS / TWO_PI);
+		float position = cycle - FLARE_CYCLE_STEPS * (float) Math.floor(cycle / FLARE_CYCLE_STEPS) - FLARE_LEAD;
+		float d = (step - position) / FLARE_WIDTH;
+		return ambient + FLARE_GAIN * (float) Math.exp(-d * d);
+	}
+
 	public void render(VertexConsumer out, Matrix4f matrix,
 			double camX, double camY, double camZ, float time, float fade) {
 		float cellSize = SkyboxConfig.auroraGridCellSize;
 		float height = SkyboxConfig.auroraHeight;
 		float halfCell = cellSize * 0.5f;
+		float brightness = SkyboxConfig.auroraBrightness;
+		boolean flares = SkyboxConfig.auroraFlares;
 
 		for (Segment segment : segments) {
-			float wave = 0.99f + 0.01f * (float) Math.sin(segment.step * 0.055f - time * 0.36f + segment.phase);
-			float shimmer = 0.995f + 0.005f * (float) Math.sin(time * 0.55f + segment.localPhase);
-			float strength = fade * segment.brightness * wave * shimmer;
+			float activity = Math.min(1.0f, activity(segment.step, segment.phase, segment.localPhase, time, flares));
+			float strength = fade * brightness * segment.brightness * activity;
 			if (strength < 0.004f) continue;
 
 			// One axis-aligned square per cell. A diagonal move only changes the cell position.
@@ -212,7 +255,8 @@ public final class AuroraRibbon {
 			float z0 = (float) (centerZ - halfCell - camZ);
 			float z1 = (float) (centerZ + halfCell - camZ);
 			float bottom = baseY - (float) camY;
-			float top = bottom + height * segment.heightScale;
+			// Brighter rays stretch a little higher; the top is faded out, so the uneven skyline stays invisible.
+			float top = bottom + height * segment.heightScale * lerp(HEIGHT_MIN, HEIGHT_MAX, activity);
 
 			drawPrism(out, matrix, x0, x1, z0, z1, bottom, top, strength, segment.tint,
 				hasCell(segment.x - 1, segment.z), hasCell(segment.x + 1, segment.z),

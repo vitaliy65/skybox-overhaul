@@ -21,6 +21,7 @@ public final class AuroraRenderer {
 	private static final Map<Long, Patch> CACHE = new HashMap<>();
 
 	private static float nightFade;
+	private static double animTime; // Animation clock in seconds; the speed setting scales how fast it runs.
 	private static long lastFrame = System.nanoTime();
 
 	public static void init() {
@@ -36,16 +37,21 @@ public final class AuroraRenderer {
 		float delta = Math.min(0.1f, (now - lastFrame) / 1_000_000_000f);
 		lastFrame = now;
 
-		long dayTime = level.getOverworldClockTime() % 24000;
-		boolean night = dayTime > 13000 && dayTime < 23000;
-		boolean cold = level.getBiome(mc.player.blockPosition()).value().getBaseTemperature() <= 0.05f;
-		nightFade = clamp(nightFade + (night && cold ? delta : -delta) / NIGHT_FADE_SECONDS);
+		boolean show = false;
+		if (SkyboxConfig.auroraEnabled) {
+			long dayTime = level.getOverworldClockTime() % 24000;
+			boolean night = dayTime > 13000 && dayTime < 23000;
+			show = night && (!SkyboxConfig.auroraColdOnly
+				|| level.getBiome(mc.player.blockPosition()).value().getBaseTemperature() <= 0.05f);
+		}
+		nightFade = clamp(nightFade + (show ? delta : -delta) / NIGHT_FADE_SECONDS);
 		if (nightFade == 0) return;
+		animTime += delta * SkyboxConfig.auroraSpeed;
 
 		Vec3 camera = mc.gameRenderer.getMainCamera().position();
 		PoseStack poses = context.poseStack();
 		VertexConsumer out = context.bufferSource().getBuffer(SkyboxPipelines.AURORA_TYPE);
-		float time = now / 1_000_000_000f;
+		float time = (float) animTime;
 		float cellSize = SkyboxConfig.auroraGridCellSize;
 		int cameraCellX = (int) Math.floor(camera.x / cellSize);
 		int cameraCellZ = (int) Math.floor(camera.z / cellSize);
