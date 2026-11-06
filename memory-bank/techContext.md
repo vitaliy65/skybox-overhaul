@@ -5,14 +5,14 @@ Java 25, Fabric Loom `net.fabricmc.fabric-loom` `1.19-SNAPSHOT`, Fabric Loader 0
 
 ## Development Setup
 `./gradlew runClient`. Source sets разделены (`splitEnvironmentSourceSets`): `src/main` (общий, почти пустой), `src/client` (весь код). Конфиг миксинов: `src/client/resources/skybox-overhaul.client.mixins.json`.
-Самопроверка палитры: `cd src/client/java/skybox/overhaul/client && java -ea SkyPalette.java` (должно напечатать `SkyPalette OK`).
+Самопроверки (чистая Java): скомпилировать `SkyPalette`, `GlowLayers`, `SkyboxConfig` вместе и запустить каждый `java -ea -cp out skybox.overhaul.client.<Имя>` (печатают `... OK`). Одиночный `java -ea X.java` не работает на JDK < 22, т.к. классы зависят друг от друга.
 
 ## Technical Constraints
 - В среде Claude нет доступа к Maven Fabric/Mojang: **код мода ни разу не компилировался и не запускался Claude**. Проверяет только пользователь.
 - Есть только декомпилированные (Fernflower) исходники: `SkyRenderer`, `LevelRenderer`, `RenderPipelines`, `AtmosphericFogEnvironment`, `EnvironmentAttributes`, `FogRenderer` (загружал пользователь). Шейдеров и `FogData`/`Camera` нет.
 
 ## Dependencies
-Только Fabric API. `skyboxify` и `tools/generate_night_sky.py` удалены (v1.1.0).
+Fabric API + Mod Menu (`modmenu_version`: 26.1 -> 18.0.2, 26.2 -> 20.0.3, 26.3 -> 21.0.0; репо `maven.terraformersmc.com/releases/`; только `suggests` в fabric.mod.json). `skyboxify` и `tools/generate_night_sky.py` удалены (v1.1.0).
 
 ## Факты о vanilla 26.1 (проверены по исходникам)
 - Высота солнца: `sin(elev) = cos(SUN_ANGLE)`; 0 = полдень, угол в атрибуте в градусах, `state.sunAngle` в радианах.

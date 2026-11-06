@@ -1,0 +1,8 @@
+{
+	"skybox-overhaul.config.title": "Skybox Overhaul",
+	"skybox-overhaul.config.palette": "Sky colours: %s",
+	"skybox-overhaul.config.sunset": "Sunset glow: %s",
+	"skybox-overhaul.config.comets": "Comet chance per night: %s",
+	"skybox-overhaul.config.fan": "Hide vanilla sunset fan: %s",
+	"skybox-overhaul.config.reset": "Reset"
+}

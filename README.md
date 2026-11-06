@@ -15,18 +15,29 @@ Sources: `src/client/java/skybox/overhaul/client/`. Architecture and status: `me
 
 `./gradlew runClient`
 
-## Tuning
+## Config (Mod Menu)
 
-- `SkyPalette`: `STRENGTH` (0 = vanilla, 1 = pure palette) and the colour tables (`HORIZON`, `ZENITH`).
-- `GlowLayers`: the sunset itself. `INTENSITY` = overall strength; each layer in `ALL` has `sigma` (how wide around
-  the sun), `time` (sun elevation window), and keyframes `elev`/`rgb`/`alpha` (how high it reaches and its colours).
+Optional: install [Mod Menu](https://modrinth.com/mod/modmenu) and open Skybox Overhaul's settings. Changes apply live
+and are saved to `config/skybox-overhaul.properties` when the screen closes.
+
+- **Sky colours**: 0% = vanilla, 100% = pure palette.
+- **Sunset glow**: overall strength of the sunrise/sunset layers.
+- **Comet chance per night**: 0-100%.
+- **Hide vanilla sunset fan**: off brings vanilla's own sunset fan back on top of ours.
+
+Mod Menu versions: Minecraft 26.1 -> 18.0.2, 26.2 -> 20.0.3, 26.3 -> 21.0.0 (`modmenu_version` in `gradle.properties`).
+
+## Tuning (in code)
+
+- `SkyPalette`: the colour tables (`HORIZON`, `ZENITH`).
+- `GlowLayers`: the sunset itself. Each layer in `ALL` has `sigma` (how wide around the sun), `time` (sun elevation
+  window), and keyframes `elev`/`rgb`/`alpha` (how high it reaches and its colours).
   Make the sunset reach further: raise the last `elev` values or the `sigma` of a layer.
-  `HIDE_VANILLA_FAN = false` brings back vanilla's own sunset fan on top.
-- `NightSky`: `COMET_PERCENT`, `BUCKETS`, `STARS`.
+- `NightSky`: `BUCKETS`, `STARS`.
 - `HorizonHaze`: `9.0` = haze height at the horizon (degrees), `1.4` = softness.
 
-Self-checks (no Minecraft needed): `java -ea SkyPalette.java` in the client package folder.
+Self-checks (no Minecraft needed): compile `SkyPalette`, `GlowLayers`, `SkyboxConfig` with `javac` and run each with `java -ea`.
 
 ## License
 
-Template code is CC0. Set your own license in `fabric.mod.json` before publishing.
+CC0-1.0 (see `LICENSE`). Change it in `fabric.mod.json` and `LICENSE` if you want something else.

@@ -9,12 +9,8 @@ package skybox.overhaul.client;
 public final class GlowLayers {
 	/** Flip if the glow shows up on the wrong side of the sky (vanilla: sun sets toward -X, rises toward +X). */
 	public static final boolean FLIP_SIDE = false;
-	/** Hide vanilla's blocky sunrise/sunset fan (our layers replace it). false = draw both. */
-	public static final boolean HIDE_VANILLA_FAN = true;
 	/** Azimuth columns of the mesh (360 / 5 deg). */
 	public static final int COLUMNS = 72;
-	/** Global strength of the whole glow, 0..1. Tune here. */
-	public static final float INTENSITY = 1.0F;
 
 	/** sigma: width (deg) around the sun (or around the anti-sun point if anti). time: sun elevation deg {lo, peak, hi}. */
 	public record Layer(float sigma, boolean anti, float[] time, float[] elev, int[] rgb, float[] alpha) {}
@@ -56,7 +52,7 @@ public final class GlowLayers {
 			return 0.0F;
 		}
 		float t = sunElevDeg < pk ? (sunElevDeg - lo) / (pk - lo) : (hi - sunElevDeg) / (hi - pk);
-		return t * t * (3.0F - 2.0F * t) * INTENSITY;
+		return t * t * (3.0F - 2.0F * t) * SkyboxConfig.sunsetIntensity;
 	}
 
 	/** Elevation rows of a layer's mesh: every ~2.5 deg between its first and last keyframe. */
@@ -92,7 +88,7 @@ public final class GlowLayers {
 		for (Layer l : ALL) {
 			check(l.elev().length == l.rgb().length && l.elev().length == l.alpha().length, "keyframe arrays");
 			check(weight(l, 60.0F) == 0.0F && weight(l, -60.0F) == 0.0F, "invisible at noon and midnight");
-			check(Math.abs(weight(l, l.time()[1]) - INTENSITY) < 1e-4F, "peak weight");
+			check(Math.abs(weight(l, l.time()[1]) - SkyboxConfig.sunsetIntensity) < 1e-4F, "peak weight");
 			float[] r = rows(l);
 			check(r[0] == l.elev()[0] && Math.abs(r[r.length - 1] - l.elev()[l.elev().length - 1]) < 1e-3F, "rows span keyframes");
 			for (float e : r) {

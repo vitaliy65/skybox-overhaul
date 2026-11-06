@@ -3,14 +3,10 @@
 	"id": "skybox-overhaul",
 	"version": "${version}",
 	"name": "Skybox Overhaul",
-	"description": "Colourful, realistic skies that stay vanilla: richer day and night gradients, wide layered sunrises and sunsets, twinkling coloured stars and rare comets.",
+	"description": "Colourful, realistic skies that stay vanilla: richer day and night gradients, wide layered sunrises and sunsets.",
 	"authors": [
-		"Me!"
+		"Talek"
 	],
-	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
-	},
 	"license": "CC0-1.0",
 	"icon": "assets/skybox-overhaul/icon.png",
 	"environment": "client",
@@ -21,11 +17,11 @@
 		}
 	],
 	"entrypoints": {
-		"main": [
-			"skybox.overhaul.SkyboxOverhaul"
-		],
 		"client": [
 			"skybox.overhaul.client.SkyboxOverhaulClient"
+		],
+		"modmenu": [
+			"skybox.overhaul.client.SkyboxModMenu"
 		]
 	},
 	"depends": {
@@ -33,5 +29,8 @@
 		"minecraft": "~26.1",
 		"java": ">=25",
 		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
 	}
 }

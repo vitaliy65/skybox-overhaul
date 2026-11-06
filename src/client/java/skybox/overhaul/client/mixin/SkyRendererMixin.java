@@ -13,10 +13,10 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import skybox.overhaul.client.GlowLayers;
 import skybox.overhaul.client.HorizonHaze;
 import skybox.overhaul.client.NightSky;
 import skybox.overhaul.client.SkyPalette;
+import skybox.overhaul.client.SkyboxConfig;
 import skybox.overhaul.client.SkyboxState;
 import skybox.overhaul.client.TwilightGlow;
 
@@ -60,7 +60,7 @@ public class SkyRendererMixin {
 	// Vanilla's sunrise/sunset fan: 16-segment triangle fan, blocky next to the sun. TwilightGlow replaces it.
 	@Inject(method = "renderSunriseAndSunset", at = @At("HEAD"), cancellable = true)
 	private void skybox$noFan(PoseStack poseStack, float sunAngle, int sunriseAndSunsetColor, CallbackInfo ci) {
-		if (GlowLayers.HIDE_VANILLA_FAN && SkyboxState.valid) {
+		if (SkyboxConfig.hideVanillaFan && SkyboxState.valid) {
 			ci.cancel();
 		}
 	}

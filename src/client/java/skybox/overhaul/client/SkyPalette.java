@@ -7,9 +7,6 @@ package skybox.overhaul.client;
  * Pure Java on purpose: self-check with  java -ea SkyPalette.java
  */
 public final class SkyPalette {
-	/** 0 = vanilla, 1 = pure palette. Fades to vanilla in rain. Tune here. */
-	public static final float STRENGTH = 0.8F;
-
 	// descending s: noon, day, afternoon, golden hour, sunset, horizon, rose, purple dusk, indigo, night
 	private static final float[] S       = {1.00F,    0.50F,    0.30F,    0.15F,    0.05F,    -0.02F,   -0.09F,   -0.18F,   -0.32F,   -1.00F};
 	private static final int[] HORIZON   = {0xBFDDFF, 0xCFE3FA, 0xFFE7C4, 0xFFD39A, 0xFFAE6B, 0xFF7F5A, 0xE0657F, 0x8F4F99, 0x3A3F82, 0x16224C};
@@ -19,12 +16,12 @@ public final class SkyPalette {
 
 	/** Fog colour: vanilla blended toward the palette horizon colour. */
 	public static int fog(int vanilla, float sunAngleRad, float rain) {
-		return mix(vanilla, sample(HORIZON, sunAngleRad), STRENGTH * (1.0F - rain));
+		return mix(vanilla, sample(HORIZON, sunAngleRad), SkyboxConfig.paletteStrength * (1.0F - rain));
 	}
 
 	/** Sky disc colour: vanilla blended toward the palette zenith colour. */
 	public static int sky(int vanilla, float sunAngleRad, float rain) {
-		return mix(vanilla, sample(ZENITH, sunAngleRad), STRENGTH * (1.0F - rain));
+		return mix(vanilla, sample(ZENITH, sunAngleRad), SkyboxConfig.paletteStrength * (1.0F - rain));
 	}
 
 	private static int sample(int[] colors, float sunAngleRad) {

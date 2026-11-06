@@ -36,7 +36,6 @@ import org.joml.Vector4f;
 public final class NightSky implements AutoCloseable {
 	private static final int STARS = 1500;
 	private static final int BUCKETS = 16;      // twinkle groups: 16 distinct rhythms, stars assigned at random
-	private static final int COMET_PERCENT = 30; // chance a given in-game day has a comet
 	private static final int COMET_TAIL = 14;
 	private static final long DAY = 24000L;
 	private static final int[] TINTS = {0xB5C8FF, 0xFFFFFF, 0xFFF2C8, 0xFFC28A, 0xFF9A80}; // blue-white .. red
@@ -52,7 +51,7 @@ public final class NightSky implements AutoCloseable {
 	private int starIndexCount;
 
 	private long cometDay = Long.MIN_VALUE;
-	private boolean cometOn;
+	private int cometRoll; // 0..99, today's dice: comet shows when below SkyboxConfig.cometPercent (so the slider works instantly)
 	private float cometTail;
 	private final Quaternionf cometOrient = new Quaternionf();
 
@@ -154,7 +153,7 @@ public final class NightSky implements AutoCloseable {
 	private void updateComet(long day) {
 		cometDay = day;
 		SplittableRandom r = new SplittableRandom(day * 0x9E3779B97F4A7C15L);
-		cometOn = r.nextInt(100) < COMET_PERCENT;
+		cometRoll = r.nextInt(100);
 		cometTail = (float) (r.nextDouble() * Math.PI * 2.0);
 		Vector3f axis = new Vector3f((float) r.nextDouble() * 2 - 1, (float) r.nextDouble() * 2 - 1, (float) r.nextDouble() * 2 - 1);
 		if (axis.lengthSquared() < 1.0E-4F) {
@@ -194,7 +193,7 @@ public final class NightSky implements AutoCloseable {
 			if (day != cometDay) {
 				updateComet(day);
 			}
-			if (cometOn) {
+			if (cometRoll < SkyboxConfig.cometPercent) {
 				float frac = (float) ((ticks - day * DAY) / DAY);
 				mv.pushMatrix();
 				// great-circle crawl of ~50 degrees over one day, tail direction fixed per comet
