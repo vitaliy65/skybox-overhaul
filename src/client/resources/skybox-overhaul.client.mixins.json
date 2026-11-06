@@ -5,7 +5,9 @@
 	"client": [
 		"AtmosphericFogEnvironmentMixin",
 		"SkyRendererMixin",
-		"FogRendererMixin"
+		"FogRendererMixin",
+		"CloudRendererMixin",
+		"LevelRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -41,3 +41,14 @@ Self-checks (no Minecraft needed): compile `SkyPalette`, `GlowLayers`, `SkyboxCo
 ## License
 
 CC0-1.0 (see `LICENSE`). Change it in `fabric.mod.json` and `LICENSE` if you want something else.
+
+
+## Layered clouds
+
+Cloud rendering keeps Minecraft's vanilla `CloudRenderer` geometry, shader pipeline, fog and graphics-mode behavior, with two additional renderer instances registered through Fabric's client resource loader.
+
+- Base layer: vanilla `minecraft:textures/environment/clouds.png`.
+- Middle layer: `skybox-overhaul:textures/environment/clouds_layer_2.png`, +12 blocks.
+- Upper layer: `skybox-overhaul:textures/environment/clouds_layer_3.png`, +24 blocks.
+
+The extra masks are transparent RGBA textures and can be replaced by a resource pack.
