@@ -8,12 +8,12 @@ package skybox.overhaul.client;
  */
 public final class SkyPalette {
 	/** 0 = vanilla, 1 = pure palette. Fades to vanilla in rain. Tune here. */
-	public static final float STRENGTH = 0.75F;
+	public static final float STRENGTH = 0.8F;
 
-	// descending s: noon, day, golden hour, sunset, horizon, rose, purple dusk, indigo, night
-	private static final float[] S       = {1.00F,    0.50F,    0.22F,    0.08F,    0.00F,    -0.08F,   -0.18F,   -0.32F,   -1.00F};
-	private static final int[] HORIZON   = {0xC4E2FF, 0xD6E4F8, 0xFFE2B8, 0xFFB070, 0xFF8A5C, 0xE0657F, 0x8F4F99, 0x3A3F82, 0x141C40};
-	private static final int[] ZENITH    = {0x5E9CF8, 0x6AA0F2, 0x7A9CE0, 0x7B7FC9, 0x5E5FAE, 0x3F3F8F, 0x24265E, 0x0E1233, 0x04060F};
+	// descending s: noon, day, afternoon, golden hour, sunset, horizon, rose, purple dusk, indigo, night
+	private static final float[] S       = {1.00F,    0.50F,    0.30F,    0.15F,    0.05F,    -0.02F,   -0.09F,   -0.18F,   -0.32F,   -1.00F};
+	private static final int[] HORIZON   = {0xBFDDFF, 0xCFE3FA, 0xFFE7C4, 0xFFD39A, 0xFFAE6B, 0xFF7F5A, 0xE0657F, 0x8F4F99, 0x3A3F82, 0x16224C};
+	private static final int[] ZENITH    = {0x3F86EE, 0x4F90EE, 0x6A98E4, 0x7A9AD8, 0x7B7FC9, 0x5E5FAE, 0x3F3F8F, 0x24265E, 0x0E1233, 0x050818};
 
 	private SkyPalette() {}
 
@@ -45,8 +45,8 @@ public final class SkyPalette {
 	}
 
 	public static void main(String[] args) {
-		check(sample(ZENITH, 0.0F) == 0xFF000000 + 0x5E9CF8, "noon zenith");
-		check(sample(HORIZON, (float) Math.PI) == 0xFF000000 + 0x141C40, "midnight horizon");
+		check(sample(ZENITH, 0.0F) == 0xFF000000 + 0x3F86EE, "noon zenith");
+		check(sample(HORIZON, (float) Math.PI) == 0xFF000000 + 0x16224C, "midnight horizon");
 		check(fog(0x123456, 0.0F, 1.0F) == 0xFF123456, "rain = vanilla");
 		check(mix(0x000000, 0xFFFFFF, 0.5F) == 0xFF808080, "mix midpoint");
 		for (float a = 0; a < 6.3F; a += 0.01F) { // full day sweep: no exceptions, always opaque

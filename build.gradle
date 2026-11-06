@@ -4,22 +4,7 @@ plugins {
 }
 
 repositories {
-	// Add repositories to retrieve artifacts from in here.
-	// You should only use this when depending on other mods because
-	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
-	// for more information about repositories.
-	exclusiveContent {
-		forRepository {
-			maven {
-				name = "Modrinth"
-				url = "https://api.modrinth.com/maven"
-			}
-		}
-		filter {
-			includeGroup "maven.modrinth"
-		}
-	}
+	// Loom adds the Minecraft and Fabric repositories automatically.
 }
 
 loom {
@@ -41,10 +26,6 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	// Skyboxify renders the OptiFine-format skies we ship in src/main/resources/assets/minecraft/optifine/sky
-	implementation "maven.modrinth:${project.skyboxify_dep}"
-	// If runClient says YetAnotherConfigLib (yet_another_config_lib_v3) is missing, add the YACL
-	// build for 26.1 here too, using its "Maven coordinates" from its Modrinth version page.
 }
 
 processResources {

@@ -5,12 +5,14 @@
 
 | Файл | Роль |
 |---|---|
-| `SkyPalette` | Чистая Java (без MC): таблица цветов по высоте солнца `s = cos(sunAngle)`; `fog()` и `sky()`; `main()` = самопроверка (`java -ea SkyPalette.java`). `STRENGTH=0.75`. |
+| `SkyPalette` | Чистая Java (без MC): таблица цветов по высоте солнца `s = cos(sunAngle)`; `fog()` и `sky()`; `main()` = самопроверка (`java -ea SkyPalette.java`). `STRENGTH=0.8`. |
 | `mixin/AtmosphericFogEnvironmentMixin` | (1) `@Redirect` убирает наклон цвета тумана по направлению взгляда (`Vector3fc.dot`), (2) `@Inject RETURN` на `getBaseColor` подмешивает палитру горизонта. |
 | `mixin/SkyRendererMixin` | `extractRenderState` TAIL: цвет зенита (`state.skyColor`); `<init>` TAIL: создаёт `NightSky`+`HorizonHaze`; `renderStars` HEAD cancel -> `NightSky.render`; `renderSkyDisc` TAIL -> `HorizonHaze.render`; `close` HEAD. |
 | `mixin/FogRendererMixin` | `setupFog` RETURN: копирует итоговый цвет тумана и дальность прорисовки в `SkyboxState`. |
 | `SkyboxState` | Статика render-thread: `FOG` (Vector4f), `rainBrightness`, `valid`. |
 | `SkyboxPipelines` | `NIGHT` (position_color, QUADS, blend OVERLAY=аддитивный, как у ванильных звёзд) и `HAZE` (position_color, QUADS, TRANSLUCENT). Регистрируются через `RenderPipelines.register`, `init()` вызывается из `SkyboxOverhaulClient`. |
+| `GlowLayers` | Чистая Java: таблица из 5 слоёв заката (gold, orange, pink, violet, venus): `sigma`, окно `time` по высоте солнца, ключи `elev/rgb/alpha`; `weight()`, `rows()`, `argb()`; `FLIP_SIDE`. Самопроверка в `main`. |
+| `TwilightGlow` | Статичный меш слоёв (цвета в вершинах, солнце на +X), каждый кадр: поворот на сторону солнца (после полудня солнце на -X) и один alpha на слой (`weight*rain`). Рисуется после `HorizonHaze` тем же пайплайном `HAZE`. |
 | `NightSky` | Заменяет ванильные звёзды (см. ниже) + комета. |
 | `HorizonHaze` | Рисует ВЕСЬ вертикальный градиент сам, поверх ванильного диска: (1) купол цвета зенита (непрозрачный до 55°, к зениту плавно исчезает), (2) купол цвета тумана с альфой `exp(-(elev/9°)^1.4)` (непрозрачный у/под горизонтом). Ванильная рампа тумана скрыта, линии нет. В дождь альфа = `rainBrightness` (возврат к vanilla). |
 

@@ -7,6 +7,8 @@ public final class SkyboxState {
 	public static final Vector4f FOG = new Vector4f();
 	/** 1 = clear, 0 = full rain; our sky layers fade out with rain so weather stays vanilla. */
 	public static float rainBrightness = 1.0F;
+	/** Vanilla sun angle in radians (0 = noon), for the twilight glow. */
+	public static float sunAngle;
 	public static boolean valid;
 
 	private SkyboxState() {}

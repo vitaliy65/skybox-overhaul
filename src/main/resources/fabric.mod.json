@@ -3,7 +3,7 @@
 	"id": "skybox-overhaul",
 	"version": "${version}",
 	"name": "Skybox Overhaul",
-	"description": "Reimagines the Minecraft sky with a custom nebula and star-filled night skybox. Requires Skyboxify.",
+	"description": "Colourful, realistic skies that stay vanilla: richer day and night gradients, wide layered sunrises and sunsets, twinkling coloured stars and rare comets.",
 	"authors": [
 		"Me!"
 	],
@@ -32,7 +32,6 @@
 		"fabricloader": ">=0.20.1",
 		"minecraft": "~26.1",
 		"java": ">=25",
-		"fabric-api": "*",
-		"skyboxify": "*"
+		"fabric-api": "*"
 	}
 }

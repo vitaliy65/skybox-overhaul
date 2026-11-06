@@ -1,23 +1,25 @@
 # Active Context
 
 ## Current Focus
-Подогнать вид горизонта под реальную жизнь (HorizonHaze v2) и проверить звёзды/комету. Линия на горизонте уже убрана.
+v1.1.0: красивые длинные закаты/рассветы (`TwilightGlow` + `GlowLayers`) и новая палитра дня/ночи. Чистка мусора сделана.
 
 ## Recent Changes
-HorizonHaze переписан (v2: свой градиент, без привязки к дальности прорисовки), `SkyboxState.rainBrightness`; ранее добавлены `FogRendererMixin`, `SkyboxState`, `SkyboxPipelines.HAZE`; откатена правка `skyEnd`; добавлены `NightSky` и пайплайн `NIGHT`; добавлен `memory-bank/` и `CLAUDE.md`.
+- Новое: `GlowLayers`, `TwilightGlow`, `SkyboxState.sunAngle`, вызов в `SkyRendererMixin` после haze.
+- `SkyPalette`: 10 ключей вместо 9, насыщеннее зенит днём, STRENGTH 0.8.
+- Удалено: `ExampleMixin`, `ExampleClientMixin`, main mixin json, Skyboxify (build.gradle, gradle.properties, fabric.mod.json), `tools/`. Добавлена иконка. README переписан.
 
 ## Next Steps
-1. Получить от пользователя: запускается ли игра (лог), дальность прорисовки в чанках, новый скриншот горизонта днём и на закате, ночное небо.
-2. Тюнинг v2: высота дымки `9.0` и мягкость `1.4` в формуле альфы (`HorizonHaze` конструктор); при желании добавить средний слой более насыщенного голубого/циан на ~10-15° и расширять дымку в сумерки.
-3. Подкрутить яркость мелких звёзд и частоту комет (`COMET_PERCENT`).
-4. Почистить мусор из Known Issues, обновить README (он описывает старую схему со Skyboxify).
+1. Пользователь запускает игру: нет ли краша при старте (лог), как выглядит закат. Сторона солнца ПОДТВЕРЖДЕНА по исходникам (FLIP_SIDE=false верно).
+2. Тюнинг по скриншотам: `sigma`, `elev` ключи, `alpha` в `GlowLayers.ALL`.
+3. Ванильный веер заката отменён миксином `skybox$noFan` (`renderSunriseAndSunset(PoseStack,float,int)`), переключатель `GlowLayers.HIDE_VANILLA_FAN`.
+4. Подкрутить яркость мелких звёзд и частоту комет.
 
 ## Active Decisions & Considerations
-- Не писать шейдеры, пока нет исходников ванильных `core/sky`, `core/stars`.
-- Прежде чем что-то менять в рендере, просить у пользователя декомпилированные классы/лог, а не гадать.
+- Не писать шейдеры. Не вставлять миксины по неизвестным сигнатурам (`defaultRequire: 1` роняет игру).
+- Сторона солнца: sin(sunAngle) > 0 = запад (-X), иначе восток (+X). Подтверждено по `AtmosphericFogEnvironment` и `SkyRenderer.renderSunMoonAndStars` (YP(-90), XP(sunAngle)).
 
 ## Important Patterns & Preferences
-Ответы по-русски, коротко; код первым; один вопрос в конце; новый код минимальный; помечать упрощения комментарием `ponytail:`; результат отдавать обновлённым zip в `/mnt/user-data/outputs/`.
+Новый код минимальный; упрощения помечать `ponytail:`; результат отдавать zip в `/mnt/user-data/outputs/`. Последние сообщения пользователь писал по-английски (отвечать на языке пользователя).
 
 ## Learnings & Insights
-Полоса зависит от дальности прорисовки, а не от skyEnd (по геометрии: диск на 16 блоков выше камеры). Любая «неожиданная» линия в небе = проверяй рампы тумана (environmental / render distance / sky).
+Полоса зависит от дальности прорисовки, а не от skyEnd. Превью неба удобно считать в Python (формулы те же, что в `GlowLayers`) и смотреть картинкой перед правкой Java.
