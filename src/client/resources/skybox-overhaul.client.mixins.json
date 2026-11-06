@@ -3,7 +3,8 @@
 	"package": "skybox.overhaul.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"AtmosphericFogEnvironmentMixin"
+		"AtmosphericFogEnvironmentMixin",
+		"SkyRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
