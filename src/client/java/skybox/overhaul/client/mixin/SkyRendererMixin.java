@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import skybox.overhaul.client.HorizonHaze;
 import skybox.overhaul.client.NightSky;
 import skybox.overhaul.client.SkyPalette;
+import skybox.overhaul.client.SkyboxState;
 
 @Mixin(SkyRenderer.class)
 public class SkyRendererMixin {
@@ -46,7 +47,7 @@ public class SkyRendererMixin {
 	// After the disc, before sunrise glow / sun / moon / stars.
 	@Inject(method = "renderSkyDisc", at = @At("TAIL"))
 	private void skybox$haze(int skyColor, CallbackInfo ci) {
-		skybox$haze.render();
+		skybox$haze.render(skyColor);
 	}
 
 	// Sky disc colour (zenith). Fog (horizon) is handled in AtmosphericFogEnvironmentMixin;
@@ -56,6 +57,7 @@ public class SkyRendererMixin {
 		if (state.skybox == Skybox.NONE || state.skybox == Skybox.END) {
 			return;
 		}
+		SkyboxState.rainBrightness = state.rainBrightness;
 		state.skyColor = SkyPalette.sky(state.skyColor, state.sunAngle, level.getRainLevel(partialTicks));
 	}
 }

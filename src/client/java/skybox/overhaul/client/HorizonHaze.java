@@ -12,91 +12,91 @@ import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
+import java.util.function.DoubleUnaryOperator;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.Mth;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 /**
- * Vanilla's sky disc is solid fog colour beyond render distance, and the ramp into that solid colour
- * shows as a hard line. This draws a cylinder in the exact terrain fog colour: opaque up to where the
- * line is, then eased to transparent, so the sky melts into the horizon with no seam.
- * Cylinder is built once; its height is scaled per frame to the render distance.
+ * Paints the whole vertical sky gradient ourselves, so vanilla's fog ramp (and the line it leaves at
+ * render distance) is covered. Two translucent domes, drawn right after the vanilla disc:
+ *  1. base: zenith colour, opaque up to 55 degrees, eased out toward the zenith (where vanilla is already zenith colour);
+ *  2. haze: terrain fog colour, opaque at/below the horizon, decaying like real atmospheric haze
+ *     (exp(-(elev/9deg)^1.4): ~65% at 5deg, ~30% at 10deg, ~5% at 20deg).
+ * Colours come from vanilla values (already time-of-day palettes), so the gradient follows the sky.
  */
 public final class HorizonHaze implements AutoCloseable {
-	private static final int SEGMENTS = 32;
-	private static final int EASE_STEPS = 8;
-	private static final float RADIUS = 100.0F;
-	private static final float PLATEAU = 10.0F; // y where alpha starts to fall (tan = 0.1)
-	private static final float TOP = 60.0F;     // y where alpha reaches 0
-	private static final float BOTTOM = -30.0F;
-	private static final int QUADS = SEGMENTS * (1 + EASE_STEPS);
+	private static final int SEGMENTS = 48;
+	private static final float R = 100.0F;
+	private static final float[] BASE_DEG = {-30, 55, 62, 69, 76, 83, 89};
+	private static final float[] HAZE_DEG = {-30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40};
+	private static final int BASE_QUADS = SEGMENTS * (BASE_DEG.length - 1);
+	private static final int HAZE_QUADS = SEGMENTS * (HAZE_DEG.length - 1);
 
 	private final GpuBuffer buffer;
 
 	public HorizonHaze() {
-		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized(QUADS * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
+		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized((BASE_QUADS + HAZE_QUADS) * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
 			BufferBuilder b = new BufferBuilder(bb, Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-			float[] ys = new float[EASE_STEPS + 2];
-			float[] alphas = new float[EASE_STEPS + 2];
-			ys[0] = BOTTOM;
-			alphas[0] = 1.0F;
-			ys[1] = PLATEAU;
-			alphas[1] = 1.0F;
-			for (int i = 1; i <= EASE_STEPS; i++) {
-				float t = (float) i / EASE_STEPS;
-				ys[i + 1] = PLATEAU + (TOP - PLATEAU) * t;
-				alphas[i + 1] = 1.0F - t * t * t * (t * (t * 6.0F - 15.0F) + 10.0F); // smootherstep: no slope jump at either end
-			}
-			for (int j = 0; j < SEGMENTS; j++) {
-				double a0 = Math.PI * 2.0 * j / SEGMENTS;
-				double a1 = Math.PI * 2.0 * (j + 1) / SEGMENTS;
-				float x0 = (float) (RADIUS * Math.cos(a0)), z0 = (float) (RADIUS * Math.sin(a0));
-				float x1 = (float) (RADIUS * Math.cos(a1)), z1 = (float) (RADIUS * Math.sin(a1));
-				for (int i = 0; i < ys.length - 1; i++) {
-					int lo = (Math.round(alphas[i] * 255.0F) << 24) | 0xFFFFFF;
-					int hi = (Math.round(alphas[i + 1] * 255.0F) << 24) | 0xFFFFFF;
-					b.addVertex(x0, ys[i], z0).setColor(lo);
-					b.addVertex(x1, ys[i], z1).setColor(lo);
-					b.addVertex(x1, ys[i + 1], z1).setColor(hi);
-					b.addVertex(x0, ys[i + 1], z0).setColor(hi);
-				}
-			}
+			dome(b, BASE_DEG, e -> {
+				double t = Math.max(0.0, Math.min(1.0, (e - 55.0) / 34.0));
+				return 1.0 - t * t * (3.0 - 2.0 * t);
+			});
+			dome(b, HAZE_DEG, e -> e <= 0.0 ? 1.0 : Math.exp(-Math.pow(e / 9.0, 1.4))); // tune: 9.0 = haze height, 1.4 = softness
 			try (MeshData mesh = b.buildOrThrow()) {
 				buffer = RenderSystem.getDevice().createBuffer(() -> "Horizon haze", 32, mesh.vertexBuffer());
 			}
 		}
 	}
 
-	public void render() {
+	private static void dome(BufferBuilder b, float[] deg, DoubleUnaryOperator alpha) {
+		for (int j = 0; j < SEGMENTS; j++) {
+			double a0 = Math.PI * 2.0 * j / SEGMENTS;
+			double a1 = Math.PI * 2.0 * (j + 1) / SEGMENTS;
+			for (int i = 0; i < deg.length - 1; i++) {
+				vertex(b, deg[i], a0, alpha);
+				vertex(b, deg[i], a1, alpha);
+				vertex(b, deg[i + 1], a1, alpha);
+				vertex(b, deg[i + 1], a0, alpha);
+			}
+		}
+	}
+
+	private static void vertex(BufferBuilder b, double elevDeg, double azimuth, DoubleUnaryOperator alpha) {
+		double e = Math.toRadians(elevDeg);
+		double c = R * Math.cos(e);
+		int a = (int) Math.round(alpha.applyAsDouble(elevDeg) * 255.0);
+		b.addVertex((float) (c * Math.cos(azimuth)), (float) (R * Math.sin(e)), (float) (c * Math.sin(azimuth))).setColor((a << 24) | 0xFFFFFF);
+	}
+
+	private static GpuBufferSlice transform(float r, float g, float bl, float alpha) {
+		return RenderSystem.getDynamicUniforms().writeTransform(RenderSystem.getModelViewMatrix(), new Vector4f(r, g, bl, alpha), new Vector3f(), new Matrix4f());
+	}
+
+	public void render(int skyColor) {
 		if (!SkyboxState.valid) {
 			return;
 		}
-		// Disc is fully fogged where its horizontal distance passes render distance:
-		// tan(elevation) = 16 / (chunks * 16) = 1 / chunks (disc sits 16 blocks up). Align plateau top with that.
-		float scaleY = Mth.clamp(1.15F * (RADIUS * (1.0F / SkyboxState.renderDistanceChunks)) / PLATEAU, 0.3F, 3.0F);
+		float a = SkyboxState.rainBrightness; // fade to vanilla in rain
 		Vector4f fog = SkyboxState.FOG;
-
-		Matrix4fStack mv = RenderSystem.getModelViewStack();
-		mv.pushMatrix();
-		mv.scale(1.0F, scaleY, 1.0F);
-		GpuBufferSlice transform = RenderSystem.getDynamicUniforms().writeTransform(mv, new Vector4f(fog.x, fog.y, fog.z, 1.0F), new Vector3f(), new Matrix4f());
-		mv.popMatrix();
+		GpuBufferSlice base = transform(((skyColor >> 16) & 0xFF) / 255.0F, ((skyColor >> 8) & 0xFF) / 255.0F, (skyColor & 0xFF) / 255.0F, a);
+		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, a);
 
 		GpuTextureView color = Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
 		GpuTextureView depth = Minecraft.getInstance().getMainRenderTarget().getDepthTextureView();
 		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(Mode.QUADS);
-		GpuBuffer indices = quads.getBuffer(QUADS * 6);
+		GpuBuffer indices = quads.getBuffer((BASE_QUADS + HAZE_QUADS) * 6);
 
 		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Horizon haze", color, OptionalInt.empty(), depth, OptionalDouble.empty())) {
 			pass.setPipeline(SkyboxPipelines.HAZE);
 			RenderSystem.bindDefaultUniforms(pass);
-			pass.setUniform("DynamicTransforms", transform);
 			pass.setVertexBuffer(0, buffer);
 			pass.setIndexBuffer(indices, quads.type());
-			pass.drawIndexed(0, 0, QUADS * 6, 1);
+			pass.setUniform("DynamicTransforms", base);
+			pass.drawIndexed(0, 0, BASE_QUADS * 6, 1);
+			pass.setUniform("DynamicTransforms", haze);
+			pass.drawIndexed(BASE_QUADS * 4, 0, HAZE_QUADS * 6, 1);
 		}
 	}
 

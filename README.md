@@ -13,7 +13,7 @@
 
 - `SkyPalette`: цвета (`HORIZON`, `ZENITH`) и `STRENGTH` (0 = vanilla, 1 = полностью палитра).
 - `NightSky`: `COMET_PERCENT`, `BUCKETS`, `STARS`.
-- `HorizonHaze`: множитель `1.15F` в `render()` управляет высотой плоской зоны у горизонта.
+- `HorizonHaze`: в конструкторе `9.0` = высота дымки у горизонта (градусы), `1.4` = мягкость спада.
 
 ## License
 

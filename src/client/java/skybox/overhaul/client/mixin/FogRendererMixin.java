@@ -17,7 +17,6 @@ public class FogRendererMixin {
 	@Inject(method = "setupFog", at = @At("RETURN"))
 	private void skybox$captureFog(Camera camera, int renderDistanceInChunks, DeltaTracker deltaTracker, float darkenWorldAmount, ClientLevel level, CallbackInfoReturnable<FogData> cir) {
 		SkyboxState.FOG.set(cir.getReturnValue().color);
-		SkyboxState.renderDistanceChunks = renderDistanceInChunks;
 		SkyboxState.valid = true;
 	}
 }
