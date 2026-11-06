@@ -1,5 +1,6 @@
 package skybox.overhaul.client;
 
+import java.util.Locale;
 import java.util.function.DoubleConsumer;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
@@ -32,11 +33,17 @@ public final class SkyboxConfigScreen extends Screen {
 			SkyboxConfig.hideVanillaFan = !SkyboxConfig.hideVanillaFan;
 			b.setMessage(fanLabel());
 		}).bounds(x, y + 72, 200, 20).build());
+		addRenderableWidget(new NumberSlider(x, y + 96, "skybox-overhaul.config.aurora-grid",
+			SkyboxConfig.auroraGridCellSize, 1.5, 8.0, " blocks", false,
+			v -> SkyboxConfig.auroraGridCellSize = (float) v));
+		addRenderableWidget(new NumberSlider(x, y + 120, "skybox-overhaul.config.aurora-height",
+			SkyboxConfig.auroraHeight, 40.0, 180.0, " blocks", true,
+			v -> SkyboxConfig.auroraHeight = (float) v));
 		addRenderableWidget(Button.builder(Component.translatable("skybox-overhaul.config.reset"), b -> {
 			SkyboxConfig.reset();
 			rebuildWidgets();
-		}).bounds(x, y + 104, 98, 20).build());
-		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose()).bounds(x + 102, y + 104, 98, 20).build());
+		}).bounds(x, y + 152, 98, 20).build());
+		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose()).bounds(x + 102, y + 152, 98, 20).build());
 	}
 
 	private static Component fanLabel() {
@@ -48,6 +55,45 @@ public final class SkyboxConfigScreen extends Screen {
 	public void onClose() {
 		SkyboxConfig.save(SkyboxOverhaulClient.CONFIG);
 		this.minecraft.setScreen(this.parent);
+	}
+
+	/** Slider whose displayed/stored value is mapped to a configurable numeric range. */
+	private static final class NumberSlider extends AbstractSliderButton {
+		private final String key;
+		private final double min;
+		private final double max;
+		private final String suffix;
+		private final boolean integer;
+		private final DoubleConsumer apply;
+
+		NumberSlider(int x, int y, String key, double value, double min, double max,
+				String suffix, boolean integer, DoubleConsumer apply) {
+			super(x, y, 200, 20, Component.empty(), (value - min) / (max - min));
+			this.key = key;
+			this.min = min;
+			this.max = max;
+			this.suffix = suffix;
+			this.integer = integer;
+			this.apply = apply;
+			updateMessage();
+		}
+
+		private double actualValue() {
+			return min + value * (max - min);
+		}
+
+		@Override
+		protected void updateMessage() {
+			double actual = actualValue();
+			String formatted = integer ? Long.toString(Math.round(actual))
+				: String.format(Locale.ROOT, "%.1f", actual);
+			setMessage(Component.translatable(key, formatted + suffix));
+		}
+
+		@Override
+		protected void applyValue() {
+			apply.accept(actualValue());
+		}
 	}
 
 	/** 0..100 % slider; label is the lang key with the percentage as %s. */

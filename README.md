@@ -24,8 +24,14 @@ and are saved to `config/skybox-overhaul.properties` when the screen closes.
 - **Sunset glow**: overall strength of the sunrise/sunset layers.
 - **Comet spawn chance, rolled every 5 s (a comet flies ~20 s, fades in and out)**: 0-100%.
 - **Hide vanilla sunset fan**: off brings vanilla's own sunset fan back on top of ours.
+- **Aurora grid cell**: horizontal X/Z spacing of the aurora grid, in blocks (default 3).
+- **Aurora pillar height**: nominal height of the vertical prisms in blocks; each cell varies slightly around it.
 
 Mod Menu versions: Minecraft 26.1 -> 18.0.2, 26.2 -> 20.0.3, 26.3 -> 21.0.0 (`modmenu_version` in `gradle.properties`).
+
+## Aurora grid
+
+The aurora is generated on a world-aligned X/Z grid. Each occupied cell contains one tall square prism, and adjacent occupied cells form 90-degree snake chains with varied shapes and lengths. The default grid cell is 3x3 blocks; cell spacing and pillar height can be changed live in Mod Menu. The lower section is bright green-cyan, transitions through blue into violet, and only the uppermost part fades smoothly to transparent. The aurora pipeline keeps depth testing enabled but does not write to the depth buffer, so it does not hide clouds behind its own depth writes.
 
 ## Tuning (in code)
 

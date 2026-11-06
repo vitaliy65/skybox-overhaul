@@ -1,0 +1,10 @@
+{
+	"skybox-overhaul.config.title": "Skybox Overhaul",
+	"skybox-overhaul.config.palette": "Цвета неба: %s",
+	"skybox-overhaul.config.sunset": "Свечение заката: %s",
+	"skybox-overhaul.config.comets": "Шанс появления кометы: %s",
+	"skybox-overhaul.config.fan": "Скрыть стандартный веер заката: %s",
+	"skybox-overhaul.config.aurora-grid": "Размер ячейки сетки авроры: %s",
+	"skybox-overhaul.config.aurora-height": "Высота столбиков авроры: %s",
+	"skybox-overhaul.config.reset": "Сбросить"
+}

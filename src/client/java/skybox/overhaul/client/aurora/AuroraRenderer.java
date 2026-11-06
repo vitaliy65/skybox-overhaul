@@ -4,54 +4,89 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.phys.Vec3;
+import skybox.overhaul.client.SkyboxConfig;
+import skybox.overhaul.client.SkyboxPipelines;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-/** Draws world-fixed aurora ribbons (one per ~600x600 cell, seeded by cell coords) at night over cold biomes. */
+/** Loads nearby aurora patches and fades each new patch in. */
 public final class AuroraRenderer {
-	private static final int CELL = 600;
-	private static final Map<Long, AuroraRibbon> CACHE = new HashMap<>();
-	private static float fade;
-	private static long last = System.nanoTime();
+	// Edit these only if you want to change streaming behaviour.
+	private static final int PATCH_RADIUS = 2;
+	private static final long PATCH_FADE_NANOS = 1_650_000_000L;
+	private static final float NIGHT_FADE_SECONDS = 4.0f;
+	private static final Map<Long, Patch> CACHE = new HashMap<>();
+
+	private static float nightFade;
+	private static long lastFrame = System.nanoTime();
 
 	public static void init() {
 		LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES.register(AuroraRenderer::render);
 	}
 
-	private static void render(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext ctx) {
+	private static void render(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context) {
 		Minecraft mc = Minecraft.getInstance();
 		var level = mc.level;
 		if (level == null || mc.player == null) return;
 
 		long now = System.nanoTime();
-		float dt = (now - last) / 1e9f;
-		last = now;
+		float delta = Math.min(0.1f, (now - lastFrame) / 1_000_000_000f);
+		lastFrame = now;
 
-		long tod = level.getOverworldClockTime() % 24000;
-		boolean night = tod > 13000 && tod < 23000;
+		long dayTime = level.getOverworldClockTime() % 24000;
+		boolean night = dayTime > 13000 && dayTime < 23000;
 		boolean cold = level.getBiome(mc.player.blockPosition()).value().getBaseTemperature() <= 0.05f;
-		fade = Math.max(0f, Math.min(1f, fade + (night && cold ? dt / 4f : -dt / 4f)));  // ~4s fade
-		if (fade <= 0f) return;
+		nightFade = clamp(nightFade + (night && cold ? delta : -delta) / NIGHT_FADE_SECONDS);
+		if (nightFade == 0) return;
 
-		Vec3 cam = mc.gameRenderer.getMainCamera().position();
-		PoseStack ps = ctx.poseStack();
-		VertexConsumer vc = ctx.bufferSource().getBuffer(RenderTypes.lightning());
-		float t = now / 1e9f;
-		int cx = Math.floorDiv((int) cam.x, CELL), cz = Math.floorDiv((int) cam.z, CELL);
-		if (CACHE.size() > 200) CACHE.clear();
-		for (int i = -1; i <= 1; i++)
-			for (int j = -1; j <= 1; j++) {
-				int x = cx + i, z = cz + j;
-				long key = ((long) x << 32) ^ (z & 0xffffffffL);
-				AuroraRibbon rb = CACHE.computeIfAbsent(key, k -> {
-					Random r = new Random(k * 0x9E3779B97F4A7C15L);
-					return r.nextFloat() < 0.8f ? new AuroraRibbon(r, (double) x * CELL, (double) z * CELL, CELL) : null;
-				});
-				if (rb != null) rb.render(vc, ps.last().pose(), cam.x, cam.y, cam.z, t, fade);
+		Vec3 camera = mc.gameRenderer.getMainCamera().position();
+		PoseStack poses = context.poseStack();
+		VertexConsumer out = context.bufferSource().getBuffer(SkyboxPipelines.AURORA_TYPE);
+		float time = now / 1_000_000_000f;
+		float cellSize = SkyboxConfig.auroraGridCellSize;
+		int cameraCellX = (int) Math.floor(camera.x / cellSize);
+		int cameraCellZ = (int) Math.floor(camera.z / cellSize);
+		int centerPatchX = Math.floorDiv(cameraCellX, AuroraRibbon.PATCH_CELLS);
+		int centerPatchZ = Math.floorDiv(cameraCellZ, AuroraRibbon.PATCH_CELLS);
+
+		for (int dx = -PATCH_RADIUS; dx <= PATCH_RADIUS; dx++) {
+			for (int dz = -PATCH_RADIUS; dz <= PATCH_RADIUS; dz++) {
+				int patchX = centerPatchX + dx;
+				int patchZ = centerPatchZ + dz;
+				long key = key(patchX, patchZ);
+				Patch patch = CACHE.computeIfAbsent(key, ignored -> new Patch(
+					new AuroraRibbon(new Random(key * 0x9E3779B97F4A7C15L),
+						patchX * AuroraRibbon.PATCH_CELLS, patchZ * AuroraRibbon.PATCH_CELLS),
+					now, patchX, patchZ));
+
+				float loaded = smoothstep((now - patch.createdAt) / (float) PATCH_FADE_NANOS);
+				patch.ribbon.render(out, poses.last().pose(), camera.x, camera.y, camera.z,
+					time, nightFade * loaded);
 			}
+		}
+
+		CACHE.entrySet().removeIf(entry ->
+			Math.abs(entry.getValue().x - centerPatchX) > PATCH_RADIUS + 2
+				|| Math.abs(entry.getValue().z - centerPatchZ) > PATCH_RADIUS + 2);
 	}
+
+	private static long key(int x, int z) {
+		return ((long) x << 32) | (z & 0xffffffffL);
+	}
+
+	private static float smoothstep(float value) {
+		float t = clamp(value);
+		return t * t * (3 - 2 * t);
+	}
+
+	private static float clamp(float value) {
+		return Math.max(0, Math.min(1, value));
+	}
+
+	private record Patch(AuroraRibbon ribbon, long createdAt, int x, int z) {}
+
+	private AuroraRenderer() {}
 }
