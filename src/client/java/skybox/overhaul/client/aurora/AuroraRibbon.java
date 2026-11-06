@@ -5,6 +5,7 @@ import org.joml.Matrix4f;
 import skybox.overhaul.client.SkyboxConfig;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -12,21 +13,26 @@ import java.util.Random;
 public final class AuroraRibbon {
 	// ======================== EDIT AURORA HERE ========================
 	// Cell size and pillar height are live sliders in Mod Menu (SkyboxConfig).
-	public static final int PATCH_CELLS = 32; // Patch width/depth, measured in grid cells.
+	public static final int PATCH_CELLS = 48; // Patch width/depth, measured in grid cells.
 
-	private static final int MIN_RIBBONS = 2;
-	private static final int MAX_RIBBONS = 3;
-	private static final int MIN_CHAIN_LENGTH = 18;
-	private static final int MAX_CHAIN_LENGTH = 34;
+	private static final int MIN_RIBBONS = 1;
+	private static final int MAX_RIBBONS = 2;
+	private static final int MIN_CHAIN_LENGTH = 38;
+	private static final int MAX_CHAIN_LENGTH = 72;
 	private static final int EDGE_MARGIN = 2;
 	private static final int START_ATTEMPTS = 48;
+	private static final int MAX_DIRECTION_DEVIATION = 2; // Up to 90 degrees from the chain's overall direction.
+	private static final int MAX_SIDEWAYS_STEPS = 2; // Prevent long sideways runs.
 
 	private static final float BASE_Y = 215.0f;
 	private static final float BASE_Y_VARIATION = 25.0f;
 	private static final float TOP_FADE_START = 0.001f; // 0 = bottom, 1 = top.
+	private static final float FADE_STRENGTH = 2.0f; // 0 = no fade, 1 = fully transparent at the top.
 	private static final float BASE_ALPHA = 0.85f;
 	private static final int COLOR_BANDS = 6;
-	private static final float CYAN_HEIGHT = 0.34f;
+	private static final float CYAN_POSITION = 0.10f; // Full cyan at 10% height.
+	private static final float VIOLET_POSITION = 0.50f; // Full violet at 20%; remains to the top.
+	private static final float[] VERTICAL_STOPS = verticalStops();
 
 	// RGB values are 0..1. Edit these three colors to change the whole palette.
 	private static final Color GREEN = new Color(0.13f, 0.91f, 0.66f);
@@ -94,43 +100,87 @@ public final class AuroraRibbon {
 			boolean[][] occupied, Random random) {
 		List<Cell> path = new ArrayList<>(length);
 		boolean[][] visited = new boolean[PATCH_CELLS][PATCH_CELLS];
+		boolean[][] risingDiagonals = new boolean[PATCH_CELLS][PATCH_CELLS];
+		boolean[][] fallingDiagonals = new boolean[PATCH_CELLS][PATCH_CELLS];
 		int x = startX;
 		int z = startZ;
-		int stepsToTurn = 2 + random.nextInt(5);
+		int deviation = 0;
+		int sidewaysSteps = 0;
+		int stepsToTurn = 1 + random.nextInt(2);
 
 		for (int step = 0; step < length; step++) {
-			if (!inside(x, z) || occupied[x][z] || visited[x][z]) break;
+			if (!open(x, z, occupied, visited)) break;
 			path.add(new Cell(x, z));
 			visited[x][z] = true;
 			if (step + 1 == length) break;
 
+			int preferredDeviation = deviation;
 			if (--stepsToTurn == 0) {
-				heading = turn(heading, random);
-				stepsToTurn = 2 + random.nextInt(5);
+				preferredDeviation = nextDeviation(deviation, sidewaysSteps, random);
+				stepsToTurn = 2 + random.nextInt(4);
 			}
 
-			int nextX = x + STEP_X[heading];
-			int nextZ = z + STEP_Z[heading];
-			if (!open(nextX, nextZ, occupied, visited)) {
-				heading = findOpenHeading(x, z, heading, occupied, visited);
-				if (heading < 0) break;
-				nextX = x + STEP_X[heading];
-				nextZ = z + STEP_Z[heading];
-			}
+			int nextDeviation = findOpenDeviation(x, z, heading, deviation, preferredDeviation, sidewaysSteps,
+					occupied, visited, risingDiagonals, fallingDiagonals);
+			if (nextDeviation == Integer.MIN_VALUE) break;
+
+			int nextHeading = (heading + nextDeviation + 8) & 7;
+			int nextX = x + STEP_X[nextHeading];
+			int nextZ = z + STEP_Z[nextHeading];
+			markDiagonal(x, z, nextX, nextZ, risingDiagonals, fallingDiagonals);
+			sidewaysSteps = Math.abs(nextDeviation) == MAX_DIRECTION_DEVIATION
+					? sidewaysSteps + 1 : 0;
+			deviation = nextDeviation;
 			x = nextX;
 			z = nextZ;
 		}
 		return path;
 	}
 
-	private static int findOpenHeading(int x, int z, int heading, boolean[][] occupied, boolean[][] visited) {
-		for (int turn = 1; turn <= 3; turn++) {
-			int left = (heading - turn + 8) & 7;
-			if (open(x + STEP_X[left], z + STEP_Z[left], occupied, visited)) return left;
-			int right = (heading + turn) & 7;
-			if (open(x + STEP_X[right], z + STEP_Z[right], occupied, visited)) return right;
+	private static int nextDeviation(int current, int sidewaysSteps, Random random) {
+		int limit = sidewaysSteps >= MAX_SIDEWAYS_STEPS ? MAX_DIRECTION_DEVIATION - 1 : MAX_DIRECTION_DEVIATION;
+		current = Math.max(-limit, Math.min(limit, current));
+		if (current == 0) return random.nextInt(4) != 0 ? (random.nextBoolean() ? 1 : -1) : 0;
+		int roll = random.nextInt(100);
+		if (roll < 50) return current;
+		return roll < 82 ? current - Integer.signum(current) : Math.max(-limit, Math.min(limit, current + Integer.signum(current)));
+	}
+
+	private static int findOpenDeviation(int x, int z, int heading, int current, int preferred, int sidewaysSteps,
+			boolean[][] occupied, boolean[][] visited, boolean[][] risingDiagonals,
+			boolean[][] fallingDiagonals) {
+		int limit = sidewaysSteps >= MAX_SIDEWAYS_STEPS ? MAX_DIRECTION_DEVIATION - 1 : MAX_DIRECTION_DEVIATION;
+		int[] choices = {preferred, current, current - 1, current + 1};
+		for (int deviation : choices) {
+			if (deviation < -limit || deviation > limit || Math.abs(deviation - current) > 1) continue;
+			int direction = (heading + deviation + 8) & 7;
+			int nextX = x + STEP_X[direction];
+			int nextZ = z + STEP_Z[direction];
+			if (open(nextX, nextZ, occupied, visited)
+					&& !crossesDiagonal(x, z, nextX, nextZ, risingDiagonals, fallingDiagonals)) return deviation;
 		}
-		return -1;
+		return Integer.MIN_VALUE;
+	}
+
+	private static boolean crossesDiagonal(int x, int z, int nextX, int nextZ,
+			boolean[][] risingDiagonals, boolean[][] fallingDiagonals) {
+		int dx = nextX - x;
+		int dz = nextZ - z;
+		if (Math.abs(dx) != 1 || Math.abs(dz) != 1) return false;
+		int cellX = Math.min(x, nextX);
+		int cellZ = Math.min(z, nextZ);
+		return dx == dz ? fallingDiagonals[cellX][cellZ] : risingDiagonals[cellX][cellZ];
+	}
+
+	private static void markDiagonal(int x, int z, int nextX, int nextZ,
+			boolean[][] risingDiagonals, boolean[][] fallingDiagonals) {
+		int dx = nextX - x;
+		int dz = nextZ - z;
+		if (Math.abs(dx) != 1 || Math.abs(dz) != 1) return;
+		int cellX = Math.min(x, nextX);
+		int cellZ = Math.min(z, nextZ);
+		if (dx == dz) risingDiagonals[cellX][cellZ] = true;
+		else fallingDiagonals[cellX][cellZ] = true;
 	}
 
 	private static boolean open(int x, int z, boolean[][] occupied, boolean[][] visited) {
@@ -141,11 +191,6 @@ public final class AuroraRibbon {
 		return x >= 1 && x < PATCH_CELLS - 1 && z >= 1 && z < PATCH_CELLS - 1;
 	}
 
-	private static int turn(int heading, Random random) {
-		int roll = random.nextInt(100);
-		int amount = roll < 52 ? 1 : roll < 91 ? 2 : 3; // 45°, 90° or 135°.
-		return (heading + (random.nextBoolean() ? amount : -amount) + 8) & 7;
-	}
 
 	public void render(VertexConsumer out, Matrix4f matrix,
 			double camX, double camY, double camZ, float time, float fade) {
@@ -185,9 +230,10 @@ public final class AuroraRibbon {
 		float[] x = {x0, x1, x1, x0};
 		float[] z = {z0, z0, z1, z1};
 
-		for (int band = 0; band < COLOR_BANDS; band++) {
-			float low = band / (float) COLOR_BANDS;
-			float high = (band + 1) / (float) COLOR_BANDS;
+		for (int band = 0; band < VERTICAL_STOPS.length - 1; band++) {
+			float low = VERTICAL_STOPS[band];
+			float high = VERTICAL_STOPS[band + 1];
+			if (high <= low) continue;
 			float yLow = bottom + (top - bottom) * low;
 			float yHigh = bottom + (top - bottom) * high;
 			Color lowColor = colorAt(low, tint);
@@ -218,14 +264,26 @@ public final class AuroraRibbon {
 	}
 
 	private static float alphaAt(float height, float strength) {
-		return BASE_ALPHA * strength * (1.0f - smoothstep(TOP_FADE_START, 1.0f, height));
+		float fade = smoothstep(TOP_FADE_START, 1.0f, height) * clamp(FADE_STRENGTH);
+		return BASE_ALPHA * strength * (1.0f - fade);
 	}
 
 	private static Color colorAt(float height, float tint) {
 		Color green = new Color(GREEN.r + 0.05f * tint, GREEN.g, GREEN.b + 0.08f * tint);
 		Color violet = new Color(VIOLET.r + 0.06f * tint, VIOLET.g, VIOLET.b);
-		if (height < CYAN_HEIGHT) return mix(green, CYAN, smoothstep(0, CYAN_HEIGHT, height));
-		return mix(CYAN, violet, smoothstep(CYAN_HEIGHT, 1, height));
+		if (height < CYAN_POSITION) return mix(green, CYAN, smoothstep(0, CYAN_POSITION, height));
+		if (height < VIOLET_POSITION) return mix(CYAN, violet, smoothstep(CYAN_POSITION, VIOLET_POSITION, height));
+		return violet;
+	}
+
+	private static float[] verticalStops() {
+		float[] stops = new float[COLOR_BANDS + 4];
+		for (int i = 0; i <= COLOR_BANDS; i++) stops[i] = i / (float) COLOR_BANDS;
+		stops[COLOR_BANDS + 1] = CYAN_POSITION;
+		stops[COLOR_BANDS + 2] = VIOLET_POSITION;
+		stops[COLOR_BANDS + 3] = TOP_FADE_START;
+		Arrays.sort(stops);
+		return stops;
 	}
 
 	private static Color mix(Color a, Color b, float amount) {
