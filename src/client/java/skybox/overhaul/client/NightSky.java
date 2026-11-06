@@ -30,11 +30,11 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 /**
- * Replacement for vanilla renderStars: same 1500 star positions (same RNG stream), square pixel stars,
+ * Replacement for vanilla renderStars: same 3000 star positions (same RNG stream), square pixel stars,
  * but each star has its own size, colour and brightness, twinkle runs per bucket of stars, plus comets that fly across the sky and fade out.
  */
 public final class NightSky implements AutoCloseable {
-	private static final int STARS = 1500;
+	private static final int STARS = 3000;
 	private static final int BUCKETS = 16;      // twinkle groups: 16 distinct rhythms, stars assigned at random
 	private static final int COMET_TAIL = 14;
 	private static final long COMET_SLOT = 100L;   // ticks: one spawn roll per slot

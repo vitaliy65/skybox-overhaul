@@ -11,5 +11,6 @@ public class SkyboxOverhaulClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		SkyboxConfig.load(CONFIG);
 		SkyboxPipelines.init();
+		skybox.overhaul.client.aurora.AuroraRenderer.init();
 	}
 }
