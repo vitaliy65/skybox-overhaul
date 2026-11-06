@@ -55,8 +55,8 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
 
     /**
      * CloudInfo is std140: vec4 (16 bytes), vec3 + 4-byte padding, vec3 + 4-byte padding.
-     * The two padding floats are unused by vanilla. The mod shader reads them as sun-side and
-     * twilight strength, avoiding a second uniform buffer or a custom cloud render pipeline.
+     * The two padding floats are unused by vanilla. The mod shader reads them as packed sun
+     * direction/warmth phase and twilight strength, avoiding another UBO or render pipeline.
      * This injection runs after vanilla has filled CloudInfo but before createRenderPass; mapping
      * the UBO after the pass opens is illegal in the 26.1 command encoder and crashes the client.
      */
@@ -78,7 +78,7 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
             float partialTicks,
             CallbackInfo ci
     ) {
-        float sunSide = SkyboxState.valid ? CloudLighting.sunSideX(SkyboxState.sunAngle) : 1.0F;
+        float sunDirection = SkyboxState.valid ? CloudLighting.packedSunDirection(SkyboxState.sunAngle) : 1.0F;
         float twilight = SkyboxState.valid
                 ? CloudLighting.twilightStrength(SkyboxState.sunAngle, SkyboxState.rainLevel)
                 : 0.0F;
@@ -86,7 +86,7 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
         try (GpuBuffer.MappedView view = RenderSystem.getDevice().createCommandEncoder()
                 .mapBuffer(this.ubo.currentBuffer(), false, true)) {
             ByteBuffer data = view.data();
-            data.putFloat(28, sunSide);
+            data.putFloat(28, sunDirection);
             data.putFloat(44, twilight);
         }
     }
