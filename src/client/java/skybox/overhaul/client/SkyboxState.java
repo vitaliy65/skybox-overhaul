@@ -9,6 +9,8 @@ public final class SkyboxState {
 	public static float rainBrightness = 1.0F;
 	/** Vanilla sun angle in radians (0 = noon), for the twilight glow. */
 	public static float sunAngle;
+	/** Actual weather strength: 0 = clear, 1 = full rain. */
+	public static float rainLevel;
 	public static boolean valid;
 
 	private SkyboxState() {}

@@ -2,22 +2,31 @@ package skybox.overhaul.client.mixin;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.renderer.CloudRenderer;
+import net.minecraft.client.renderer.MappableRingBuffer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.phys.Vec3;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import skybox.overhaul.client.CloudLayers;
+import skybox.overhaul.client.CloudLighting;
 import skybox.overhaul.client.CloudTextureOverride;
+import skybox.overhaul.client.SkyboxState;
 
 @Mixin(CloudRenderer.class)
 public abstract class CloudRendererMixin implements CloudTextureOverride {
+    @Shadow @Final private MappableRingBuffer ubo;
     @Unique
     private Identifier skybox$textureOverride;
 
@@ -41,6 +50,45 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
     private InputStream skybox$openLayerTexture(ResourceManager manager, Identifier vanillaTexture) throws IOException {
         Identifier texture = this.skybox$textureOverride;
         return manager.open(texture == null ? vanillaTexture : texture);
+    }
+
+
+    /**
+     * CloudInfo is std140: vec4 (16 bytes), vec3 + 4-byte padding, vec3 + 4-byte padding.
+     * The two padding floats are unused by vanilla. The mod shader reads them as sun-side and
+     * twilight strength, avoiding a second uniform buffer or a custom cloud render pipeline.
+     * This injection runs after vanilla has filled CloudInfo but before createRenderPass; mapping
+     * the UBO after the pass opens is illegal in the 26.1 command encoder and crashes the client.
+     */
+    @Inject(
+            method = "render",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lcom/mojang/blaze3d/systems/RenderSystem;getDynamicUniforms()Lnet/minecraft/client/renderer/DynamicUniforms;"
+            ),
+            require = 1
+    )
+    private void skybox$writeCloudLighting(
+            int color,
+            CloudStatus cloudStatus,
+            float bottomY,
+            int range,
+            Vec3 cameraPosition,
+            long gameTime,
+            float partialTicks,
+            CallbackInfo ci
+    ) {
+        float sunSide = SkyboxState.valid ? CloudLighting.sunSideX(SkyboxState.sunAngle) : 1.0F;
+        float twilight = SkyboxState.valid
+                ? CloudLighting.twilightStrength(SkyboxState.sunAngle, SkyboxState.rainLevel)
+                : 0.0F;
+
+        try (GpuBuffer.MappedView view = RenderSystem.getDevice().createCommandEncoder()
+                .mapBuffer(this.ubo.currentBuffer(), false, true)) {
+            ByteBuffer data = view.data();
+            data.putFloat(28, sunSide);
+            data.putFloat(44, twilight);
+        }
     }
 
     @Inject(method = "render", at = @At("TAIL"))

@@ -69,6 +69,7 @@ public class SkyRendererMixin {
 	// vanilla's sky shader fades disc -> fog colour toward the horizon = the gradient.
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void skybox$zenith(ClientLevel level, float partialTicks, Camera camera, SkyRenderState state, CallbackInfo ci) {
+		SkyboxState.rainLevel = level.getRainLevel(partialTicks);
 		if (state.skybox == Skybox.NONE || state.skybox == Skybox.END) {
 			return;
 		}
