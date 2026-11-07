@@ -9,8 +9,10 @@ package skybox.overhaul.client;
 public final class SkyPalette {
 	// descending s: noon, day, afternoon, golden hour, sunset, horizon, rose, purple dusk, indigo, night
 	private static final float[] S       = {1.00F,    0.50F,    0.30F,    0.15F,    0.05F,    -0.02F,   -0.09F,   -0.18F,   -0.32F,   -1.00F};
-	private static final int[] HORIZON   = {0xBFDDFF, 0xCFE3FA, 0xFFE7C4, 0xFFD39A, 0xFFAE6B, 0xFF7F5A, 0xE0657F, 0x8F4F99, 0x3A3F82, 0x16224C};
-	private static final int[] ZENITH    = {0x3F86EE, 0x4F90EE, 0x6A98E4, 0x7A9AD8, 0x7B7FC9, 0x5E5FAE, 0x3F3F8F, 0x24265E, 0x0E1233, 0x050818};
+	private static final int[] HORIZON   = {0xBFDDFF, 0xCFE3FA, 0xFFDCA0, 0xFFC25A, 0xFF9E2A, 0xFF6A1E, 0xE0455E, 0x9A3A8C, 0x3F3A86, 0x16224C};
+	// Sunset (s ~ 0.05 .. -0.09): saturated yellow-orange horizon under a crimson -> magenta top, like a stylised
+	// "sunset of seven suns" sky; then purple -> indigo -> night. Daytime and night keys are unchanged.
+	private static final int[] ZENITH    = {0x3F86EE, 0x4F90EE, 0x6B93E0, 0xA874C0, 0xB93A5E, 0x92306A, 0x5A2B7A, 0x2C2468, 0x0E1233, 0x050818};
 
 	private SkyPalette() {}
 
