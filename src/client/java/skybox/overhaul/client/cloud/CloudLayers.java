@@ -66,7 +66,7 @@ public final class CloudLayers {
         // rain strength. That prevents a visible cloud-pattern jump when rain starts or stops.
         updateWeatherDrift(gameTime, rain);
 
-        MIDDLE.render(
+        MIDDLE.prepare(
                 applyOpacity(rainTintedColor, MIDDLE_OPACITY + 0.16F * rain),
                 cloudStatus,
                 bottomY + MIDDLE_HEIGHT_OFFSET,
@@ -76,7 +76,7 @@ public final class CloudLayers {
                 partialTicks
         );
 
-        UPPER.render(
+        UPPER.prepare(
                 applyOpacity(rainTintedColor, UPPER_OPACITY + 0.07F * rain),
                 cloudStatus,
                 bottomY + UPPER_HEIGHT_OFFSET,

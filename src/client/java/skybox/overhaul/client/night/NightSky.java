@@ -1,21 +1,19 @@
 package skybox.overhaul.client.night;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.IndexType;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.OptionalDouble;
-import java.util.Optional;
 import java.util.Random;
 import java.util.SplittableRandom;
 import net.minecraft.client.Minecraft;
@@ -50,11 +48,11 @@ public final class NightSky implements AutoCloseable {
 
 	private final GpuBuffer starBuffer;
 	private final GpuBuffer cometBuffer;
+	private GpuBuffer indices; // set by buildStars: covers stars and comet
 	private final int[] bucketStars = new int[BUCKETS];
 	private final float[] freq = new float[BUCKETS];
 	private final float[] phase = new float[BUCKETS];
 	private final float[] depth = new float[BUCKETS];
-	private int starIndexCount;
 
 	private final Quaternionf cometOrient = new Quaternionf();
 
@@ -115,7 +113,7 @@ public final class NightSky implements AutoCloseable {
 		for (Star s : stars) {
 			bucketStars[s.bucket()]++;
 		}
-		starIndexCount = stars.size() * 6;
+		indices = SkyboxPipelines.quadIndices(stars.size());
 
 		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized(stars.size() * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
 			BufferBuilder b = new BufferBuilder(bb, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
@@ -125,7 +123,7 @@ public final class NightSky implements AutoCloseable {
 				}
 			}
 			try (MeshData mesh = b.buildOrThrow()) {
-				return RenderSystem.getDevice().createBuffer(() -> "Night stars", 32, mesh.vertexBuffer());
+				return RenderSystem.getDevice().createBuffer(() -> "Night stars", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, mesh.vertexBuffer());
 			}
 		}
 	}
@@ -141,7 +139,7 @@ public final class NightSky implements AutoCloseable {
 				quad(b, 0.3F + k * 0.4F, 0.04F + 0.2F * f, (Math.round(0xB0 * f * f) << 24) | 0xA8D8FF);
 			}
 			try (MeshData mesh = b.buildOrThrow()) {
-				return RenderSystem.getDevice().createBuffer(() -> "Comet", 32, mesh.vertexBuffer());
+				return RenderSystem.getDevice().createBuffer(() -> "Comet", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, mesh.vertexBuffer());
 			}
 		}
 	}
@@ -185,8 +183,8 @@ public final class NightSky implements AutoCloseable {
 		return RenderSystem.getDynamicUniforms().writeTransform(mv, new Vector4f(1.0F, 1.0F, 1.0F, alpha), new Vector3f(), new Matrix4f());
 	}
 
-	/** Called with the same pose vanilla renderStars gets (star rotation already applied). */
-	public void render(PoseStack poseStack, float starBrightness) {
+	/** Called with the pass and pose vanilla renderStars gets (star rotation already applied); draws into that pass. */
+	public void render(RenderPass pass, PoseStack poseStack, float starBrightness) {
 		double t = (System.nanoTime() / 1_000_000L % 1_000_000L) / 1000.0; // real seconds, twinkle only
 		Matrix4fStack mv = RenderSystem.getModelViewStack();
 		mv.pushMatrix();
@@ -220,30 +218,23 @@ public final class NightSky implements AutoCloseable {
 			}
 		}
 
-		GpuTextureView color = Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
-		GpuTextureView depthTex = Minecraft.getInstance().gameRenderer.mainRenderTarget().getDepthTextureView();
-		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
-		GpuBuffer indices = quads.getBuffer(starIndexCount);
-
-		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Night sky", color, Optional.empty(), depthTex, OptionalDouble.empty())) {
-			pass.setPipeline(SkyboxPipelines.NIGHT);
-			RenderSystem.bindDefaultUniforms(pass);
-			pass.setIndexBuffer(indices, quads.type());
-			pass.setVertexBuffer(0, starBuffer.slice());
-			int baseVertex = 0;
-			for (int b = 0; b < BUCKETS; b++) {
-				if (bucketStars[b] > 0) {
-					pass.setUniform("DynamicTransforms", slices[b]);
-					pass.drawIndexed(bucketStars[b] * 6, 1, 0, baseVertex, 0);
-					baseVertex += bucketStars[b] * 4;
-				}
+		pass.setPipeline(RenderSystem.getCompiledPipeline(SkyboxPipelines.NIGHT));
+		RenderSystem.bindDefaultUniforms(pass);
+		pass.setIndexBuffer(indices, IndexType.INT);
+		pass.setVertexBuffer(0, starBuffer.slice());
+		int baseVertex = 0;
+		for (int b = 0; b < BUCKETS; b++) {
+			if (bucketStars[b] > 0) {
+				pass.setUniform("DynamicTransforms", slices[b]);
+				pass.drawIndexed(bucketStars[b] * 6, 1, 0, baseVertex, 0);
+				baseVertex += bucketStars[b] * 4;
 			}
-			if (!cometSlices.isEmpty()) {
-				pass.setVertexBuffer(0, cometBuffer.slice());
-				for (GpuBufferSlice c : cometSlices) {
-					pass.setUniform("DynamicTransforms", c);
-					pass.drawIndexed((2 + COMET_TAIL) * 6, 1, 0, 0, 0);
-				}
+		}
+		if (!cometSlices.isEmpty()) {
+			pass.setVertexBuffer(0, cometBuffer.slice());
+			for (GpuBufferSlice c : cometSlices) {
+				pass.setUniform("DynamicTransforms", c);
+				pass.drawIndexed((2 + COMET_TAIL) * 6, 1, 0, 0, 0);
 			}
 		}
 
@@ -254,5 +245,6 @@ public final class NightSky implements AutoCloseable {
 	public void close() {
 		starBuffer.close();
 		cometBuffer.close();
+		indices.close();
 	}
 }

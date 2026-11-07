@@ -1,18 +1,15 @@
 package skybox.overhaul.client.sky;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.PrimitiveTopology;
-import java.util.OptionalDouble;
-import java.util.Optional;
-import net.minecraft.client.Minecraft;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.IndexType;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
@@ -29,6 +26,7 @@ public final class TwilightGlow implements AutoCloseable {
 	private static final int LAYERS = GlowLayers.ALL.length;
 
 	private final GpuBuffer buffer;
+	private final GpuBuffer indices;
 	private final int[] baseVertex = new int[LAYERS];
 	private final int[] quadCount = new int[LAYERS];
 	private int totalQuads;
@@ -57,9 +55,10 @@ public final class TwilightGlow implements AutoCloseable {
 				}
 			}
 			try (MeshData mesh = b.buildOrThrow()) {
-				buffer = RenderSystem.getDevice().createBuffer(() -> "Twilight glow", 32, mesh.vertexBuffer());
+				buffer = RenderSystem.getDevice().createBuffer(() -> "Twilight glow", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, mesh.vertexBuffer());
 			}
 		}
+		indices = SkyboxPipelines.quadIndices(totalQuads);
 	}
 
 	private static void vertex(BufferBuilder b, GlowLayers.Layer layer, float elevDeg, float azDeg) {
@@ -70,7 +69,8 @@ public final class TwilightGlow implements AutoCloseable {
 		b.addVertex((float) (c * Math.cos(a)), (float) (R * Math.sin(e)), (float) (c * Math.sin(a))).setColor(GlowLayers.argb(layer, elevDeg, offset));
 	}
 
-	public void render() {
+	/** Draws into vanilla's sky pass (26.3 hands the pass to the sky methods; a second pass cannot be opened inside it). */
+	public void render(RenderPass pass) {
 		if (!SkyboxState.valid) {
 			return;
 		}
@@ -92,21 +92,14 @@ public final class TwilightGlow implements AutoCloseable {
 			return; // daytime / deep night: nothing to draw
 		}
 
-		GpuTextureView color = Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
-		GpuTextureView depth = Minecraft.getInstance().gameRenderer.mainRenderTarget().getDepthTextureView();
-		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
-		GpuBuffer indices = quads.getBuffer(totalQuads * 6);
-
-		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Twilight glow", color, Optional.empty(), depth, OptionalDouble.empty())) {
-			pass.setPipeline(SkyboxPipelines.HAZE); // plain alpha-blended position_color quads, same as the haze
-			RenderSystem.bindDefaultUniforms(pass);
-			pass.setVertexBuffer(0, buffer.slice());
-			pass.setIndexBuffer(indices, quads.type());
-			for (int i = 0; i < LAYERS; i++) {
-				if (slices[i] != null) {
-					pass.setUniform("DynamicTransforms", slices[i]);
-					pass.drawIndexed(quadCount[i] * 6, 1, 0, baseVertex[i], 0);
-				}
+		pass.setPipeline(RenderSystem.getCompiledPipeline(SkyboxPipelines.HAZE)); // plain alpha-blended position_color quads, same as the haze
+		RenderSystem.bindDefaultUniforms(pass);
+		pass.setVertexBuffer(0, buffer.slice());
+		pass.setIndexBuffer(indices, IndexType.INT);
+		for (int i = 0; i < LAYERS; i++) {
+			if (slices[i] != null) {
+				pass.setUniform("DynamicTransforms", slices[i]);
+				pass.drawIndexed(quadCount[i] * 6, 1, 0, baseVertex[i], 0);
 			}
 		}
 	}
@@ -114,5 +107,6 @@ public final class TwilightGlow implements AutoCloseable {
 	@Override
 	public void close() {
 		buffer.close();
+		indices.close();
 	}
 }

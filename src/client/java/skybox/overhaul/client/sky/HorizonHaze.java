@@ -1,19 +1,16 @@
 package skybox.overhaul.client.sky;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.PrimitiveTopology;
-import java.util.OptionalDouble;
-import java.util.Optional;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.IndexType;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import java.util.function.DoubleUnaryOperator;
-import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
@@ -37,6 +34,7 @@ public final class HorizonHaze implements AutoCloseable {
 	private static final int HAZE_QUADS = SEGMENTS * (HAZE_DEG.length - 1);
 
 	private final GpuBuffer buffer;
+	private final GpuBuffer indices = SkyboxPipelines.quadIndices(BASE_QUADS + HAZE_QUADS);
 
 	public HorizonHaze() {
 		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized((BASE_QUADS + HAZE_QUADS) * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
@@ -47,7 +45,7 @@ public final class HorizonHaze implements AutoCloseable {
 			});
 			dome(b, HAZE_DEG, e -> e <= 0.0 ? 1.0 : Math.exp(-Math.pow(e / 9.0, 1.4))); // tune: 9.0 = haze height, 1.4 = softness
 			try (MeshData mesh = b.buildOrThrow()) {
-				buffer = RenderSystem.getDevice().createBuffer(() -> "Horizon haze", 32, mesh.vertexBuffer());
+				buffer = RenderSystem.getDevice().createBuffer(() -> "Horizon haze", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, mesh.vertexBuffer());
 			}
 		}
 	}
@@ -76,7 +74,8 @@ public final class HorizonHaze implements AutoCloseable {
 		return RenderSystem.getDynamicUniforms().writeTransform(RenderSystem.getModelViewMatrixCopy(), new Vector4f(r, g, bl, alpha), new Vector3f(), new Matrix4f());
 	}
 
-	public void render(int skyColor) {
+	/** Draws into vanilla's sky pass (26.3 hands the pass to the sky methods; a second pass cannot be opened inside it). */
+	public void render(RenderPass pass, int skyColor) {
 		if (!SkyboxState.valid) {
 			return;
 		}
@@ -85,25 +84,19 @@ public final class HorizonHaze implements AutoCloseable {
 		GpuBufferSlice base = transform(((skyColor >> 16) & 0xFF) / 255.0F, ((skyColor >> 8) & 0xFF) / 255.0F, (skyColor & 0xFF) / 255.0F, a);
 		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, a);
 
-		GpuTextureView color = Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
-		GpuTextureView depth = Minecraft.getInstance().gameRenderer.mainRenderTarget().getDepthTextureView();
-		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
-		GpuBuffer indices = quads.getBuffer((BASE_QUADS + HAZE_QUADS) * 6);
-
-		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Horizon haze", color, Optional.empty(), depth, OptionalDouble.empty())) {
-			pass.setPipeline(SkyboxPipelines.HAZE);
-			RenderSystem.bindDefaultUniforms(pass);
-			pass.setVertexBuffer(0, buffer.slice());
-			pass.setIndexBuffer(indices, quads.type());
-			pass.setUniform("DynamicTransforms", base);
-			pass.drawIndexed(BASE_QUADS * 6, 1, 0, 0, 0);
-			pass.setUniform("DynamicTransforms", haze);
-			pass.drawIndexed(HAZE_QUADS * 6, 1, 0, BASE_QUADS * 4, 0);
-		}
+		pass.setPipeline(RenderSystem.getCompiledPipeline(SkyboxPipelines.HAZE));
+		RenderSystem.bindDefaultUniforms(pass);
+		pass.setVertexBuffer(0, buffer.slice());
+		pass.setIndexBuffer(indices, IndexType.INT);
+		pass.setUniform("DynamicTransforms", base);
+		pass.drawIndexed(BASE_QUADS * 6, 1, 0, 0, 0);
+		pass.setUniform("DynamicTransforms", haze);
+		pass.drawIndexed(HAZE_QUADS * 6, 1, 0, BASE_QUADS * 4, 0);
 	}
 
 	@Override
 	public void close() {
 		buffer.close();
+		indices.close();
 	}
 }

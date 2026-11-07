@@ -1,5 +1,15 @@
 # Active Context
 
+## Latest (порт на 26.3: renderpearl + общий RenderPass неба)
+- Исправлены только: `render/SkyboxPipelines`, `sky/HorizonHaze`, `sky/TwilightGlow`, `night/NightSky`, `mixin/SkyRendererMixin`.
+- 26.3: `com.mojang.blaze3d.*` (RenderPass, GpuBuffer(Slice), GpuTextureView, RenderPipeline, PrimitiveTopology, BlendFunction, DepthStencilState, CompareOp, IndexType, VertexFormat) переехал в `com.mojang.renderpearl.api.{commands,buffers,textures,pipeline,vertex}`. `RenderSystem`, `PoseStack`, `BufferBuilder`, `ByteBufferBuilder`, `MeshData`, `DefaultVertexFormat` остались в `blaze3d`.
+- `BindGroupLayouts.MATRICES_PROJECTION` удалён: теперь `PROJECTION` + `DYNAMIC_TRANSFORMS`. `RenderPass.setPipeline` берёт `RenderSystem.getCompiledPipeline(pipeline)`. `RenderPipelines.register` не используем (так делают Iris/Sodium), `AURORA_TYPE` (мёртвый) удалён.
+- `SkyRenderer` в 26.3 отдаёт один `RenderPass` во все методы: `renderSkyDisc(RenderPass, Vector3fc)`, `renderStars(RenderPass, float, PoseStack)`, `renderSunriseAndSunset(RenderPass, PoseStack, float, Vector4fc)` (сверено по Iris и Darker-Sky 26.3). Свой `createRenderPass` внутри нельзя: `NightSky/HorizonHaze/TwilightGlow.render(...)` теперь рисуют в переданный pass.
+- Состояние неба (rain, sunAngle, биом, зенит) теперь считается в `@ModifyVariable renderSkyDisc` (раньше `extractRenderState`, сигнатура в 26.3 неизвестна). `SkyboxState.sunAngle` берётся из `camera.attributeProbe()` как в `AtmosphericFogEnvironmentMixin`.
+- Индексы квадов: свой статический буфер `SkyboxPipelines.quadIndices(n)` (общий `getSequentialBuffer` в 26.3 растёт только в начале кадра). Флаги буферов `GpuBuffer.USAGE_VERTEX | USAGE_COPY_DST` вместо магического `32`.
+- НЕ компилировалось (нет Maven). НЕ проверено: что `core/position_color` в 26.3 нужны ровно PROJECTION+DYNAMIC_TRANSFORMS; `IndexType.INT`; ленивая компиляция пайплайна без `register`; `Mth.TWO_PI`, `ByteBufferBuilder.exactlySized`.
+- Остались на старом API (вне задачи): `aurora/AuroraRenderer` (blaze3d-импорты, `setPipeline(RenderPipeline)`, `info.indexBuffer()` -> `customIndexBuffer`), `mixin/CloudRendererMixin` (`GpuBufferSlice`, target `DynamicUniforms` -> `DynamicGpuData`), шейдеры `rendertype_clouds.*` -> в 26.3 `clouds.*`.
+
 ## Current Focus
 v1.2.0: конфиг через Mod Menu (`SkyboxConfig` + `SkyboxConfigScreen`) и полировка. Ждём запуск в игре и правки пользователя.
 
