@@ -3,11 +3,11 @@
 ## Current Focus
 v1.2.0: конфиг через Mod Menu (`SkyboxConfig` + `SkyboxConfigScreen`) и полировка. Ждём запуск в игре и правки пользователя.
 
-## Latest (солнце/луна = обычные текстуры)
-- Кодовая отрисовка светил убрана: удалены `Celestials`, миксины `renderSun/renderMoon`, пайплайн `CELESTIAL`, опция `customCelestials` (конфиг, экран, lang). Причина: в игре луна рисовалась поверх солнца.
-- Вместо этого мод подменяет ванильные спрайты атласа celestials: `assets/minecraft/textures/environment/celestial/sun.png` и `.../moon/<фаза>.png` (1024x1024, свечение запечено). Позиции ванильные.
-- Минус: квад ванильный (солнце 60, луна 40 блоков), тело на текстуре занимает 389/1024 и 263/1024, значит выглядит в ~2.6-3 раза меньше ванильного. Если мало: увеличить тело в PNG или вернуть код с квадом побольше.
-- НЕ проверено: игра. Пути папки атласа (`environment/celestial`, `moon/`) взяты по id спрайтов `sun`, `moon/<фаза>`; если осталось ванильное солнце, проверить `atlases/celestials.json`.
+## Latest (переключатель солнца/луны = встроенный ресурспак)
+- Кодовая отрисовка светил убрана (`Celestials`, миксины `renderSun/renderMoon`, пайплайн, `customCelestials`): в игре луна рисовалась поверх солнца. Пользователю нравится вид через текстуры («идеально»).
+- Текстуры (sun.png, moon/<фаза>.png, 1024x1024, свечение запечено) лежат во встроенном паке `src/main/resources/resourcepacks/celestials/assets/minecraft/textures/environment/celestial/`, регистрируется в `SkyboxOverhaulClient` через `ResourceLoader.registerBuiltinPack(..., PackActivationType.DEFAULT_ENABLED)`. Выключить: Настройки > Ресурспаки.
+- НЕ компилировалось: сигнатура/пакеты `ResourceLoader`, `PackActivationType` (Fabric API 0.161.0+26.2) взяты по памяти. Если сборка падает, смотреть сначала их (раньше был `ResourceManagerHelper.registerBuiltinResourcePack`). Не проверено в игре: что у встроенного пака нет pack.mcmeta (Fabric должен сгенерировать сам).
+- Тело светил ~2.6-3x меньше ванильного (ванильный квад 60/40 блоков, тело на PNG 389/1024 и 263/1024).
 
 ## Previous (v1.5.0, змейки сияния: частота, волна высоты, ячейка 8..32)
 - `auroraFrequency` (0..1, дефолт 0.4, ползунок «Частота змеек»): патч всегда генерит `MAX_RIBBONS`=8 цепочек, у каждой фиксированный порог `appear`; рисуется, если `appear < frequency`. Живой ползунок, раскладка не перетасовывается. `appearAt[x][z]` заменил `occupied` в `hasCell` (грани между скрытыми и видимыми цепочками не режутся).
