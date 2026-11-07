@@ -36,6 +36,8 @@ public final class SkyboxConfig {
 	public static boolean auroraFlares = true;
 	/** How many of the generated aurora snakes are shown, 0..1 (0 = none, 1 = all). */
 	public static float auroraFrequency = 0.4F;
+	/** Number of stars in the night sky, 1500..8000. */
+	public static int starCount = 1500;
 
 	private SkyboxConfig() {}
 
@@ -52,6 +54,7 @@ public final class SkyboxConfig {
 		auroraSpeed = 1.0F;
 		auroraFlares = true;
 		auroraFrequency = 0.4F;
+		starCount = 1500;
 	}
 
 	/** Missing file, bad numbers or out-of-range values fall back to the defaults / get clamped. */
@@ -75,6 +78,7 @@ public final class SkyboxConfig {
 		auroraEnabled = bool(p, "auroraEnabled", auroraEnabled);
 		auroraColdOnly = bool(p, "auroraColdOnly", auroraColdOnly);
 		auroraFlares = bool(p, "auroraFlares", auroraFlares);
+		starCount = Math.round(rangedNum(p, "starCount", starCount, 1500.0F, 8000.0F));
 	}
 
 	public static void save(Path file) {
@@ -91,6 +95,7 @@ public final class SkyboxConfig {
 		p.setProperty("auroraSpeed", String.valueOf(auroraSpeed));
 		p.setProperty("auroraFlares", String.valueOf(auroraFlares));
 		p.setProperty("auroraFrequency", String.valueOf(auroraFrequency));
+		p.setProperty("starCount", String.valueOf(starCount));
 		try (Writer w = Files.newBufferedWriter(file)) {
 			p.store(w, "Skybox Overhaul");
 		} catch (IOException e) {
@@ -136,27 +141,28 @@ public final class SkyboxConfig {
 		auroraSpeed = 1.5F;
 		auroraFlares = false;
 		auroraFrequency = 0.75F;
+		starCount = 4200;
 		save(f);
 		reset();
 		load(f);
 		check(paletteStrength == 0.25F && sunsetIntensity == 0.5F && !hideVanillaFan && cometPercent == 77
 			&& auroraGridCellSize == 20.5F && auroraHeight == 120.0F
 			&& !auroraEnabled && !auroraColdOnly && auroraBrightness == 0.4F && auroraSpeed == 1.5F
-			&& !auroraFlares && auroraFrequency == 0.75F, "round trip");
+			&& !auroraFlares && auroraFrequency == 0.75F && starCount == 4200, "round trip");
 
 		Files.writeString(f, "paletteStrength=9\nsunsetIntensity=abc\ncometPercent=-5\nauroraGridCellSize=0.2\nauroraHeight=999\n"
-			+ "auroraEnabled=maybe\nauroraBrightness=9\nauroraSpeed=0.01\nauroraFlares=\nauroraFrequency=7\n");
+			+ "auroraEnabled=maybe\nauroraBrightness=9\nauroraSpeed=0.01\nauroraFlares=\nauroraFrequency=7\nstarCount=99999\n");
 		load(f);
 		check(paletteStrength == 1.0F && sunsetIntensity == 1.0F && cometPercent == 0 && hideVanillaFan
 			&& auroraGridCellSize == 8.0F && auroraHeight == 180.0F
 			&& auroraEnabled && auroraColdOnly && auroraBrightness == 1.0F && auroraSpeed == 0.25F
-			&& auroraFlares && auroraFrequency == 1.0F, "clamp + defaults");
+			&& auroraFlares && auroraFrequency == 1.0F && starCount == 8000, "clamp + defaults");
 
 		Files.delete(f);
 		load(f);
 		check(paletteStrength == 0.8F && cometPercent == 30 && auroraGridCellSize == 16.0F
 			&& auroraHeight == 90.0F && auroraEnabled && auroraColdOnly && auroraBrightness == 1.0F
-			&& auroraSpeed == 1.0F && auroraFlares && auroraFrequency == 0.4F, "missing file = defaults");
+			&& auroraSpeed == 1.0F && auroraFlares && auroraFrequency == 0.4F && starCount == 1500, "missing file = defaults");
 		System.out.println("SkyboxConfig OK");
 	}
 
