@@ -1,34 +1,36 @@
 package skybox.overhaul.client.aurora;
 
-import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.renderpearl.api.commands.RenderPass;
-import com.mojang.renderpearl.api.pipeline.CompiledRenderPipeline;
 import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
-import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.renderpearl.api.vertex.VertexFormat;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelExtractionContext;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalDouble;
 import java.util.Random;
 import skybox.overhaul.client.config.SkyboxConfig;
 import skybox.overhaul.client.render.SkyboxPipelines;
 
-/** Loads nearby aurora patches and fades each new patch in. */
+/**
+ * Loads nearby aurora patches and fades each new patch in.
+ *
+ * <p>26.3: vanilla keeps a render pass open while the level render events fire, and uploading a buffer or opening
+ * a second pass inside it throws "Close the existing render pass before performing additional commands".
+ * So the work is split: {@link #prepare} builds and uploads the vertices in LevelRenderEvents.END_EXTRACTION
+ * (no pass is open there), and {@link #drawInSky} draws them into the sky pass that SkyRendererMixin already gets.
+ */
 public final class AuroraRenderer {
 	// Edit these only if you want to change streaming behaviour.
 	private static final int PATCH_RADIUS = 2;
@@ -37,16 +39,27 @@ public final class AuroraRenderer {
 	private static final Map<Long, Patch> CACHE = new HashMap<>();
 
 	private static final StagedVertexBuffer STAGED = new StagedVertexBuffer(() -> "Skybox aurora", RenderType.SMALL_BUFFER_SIZE);
+	// Vertices are camera-relative world coordinates; the modelview (camera rotation) is applied in drawInSky.
+	private static final Matrix4f IDENTITY = new Matrix4f();
+
+	/** Uploaded this frame and waiting for the sky pass; null when there is nothing to draw. */
+	private static StagedVertexBuffer.ExecuteInfo pending;
+	private static boolean staged; // something was appended last frame, so endFrame() is due
 
 	private static float nightFade;
 	private static double animTime; // Animation clock in seconds; the speed setting scales how fast it runs.
 	private static long lastFrame = System.nanoTime();
 
 	public static void init() {
-		LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES.register(AuroraRenderer::render);
+		LevelRenderEvents.END_EXTRACTION.register(AuroraRenderer::prepare);
 	}
 
-	private static void render(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context) {
+	private static void prepare(LevelExtractionContext context) {
+		pending = null;
+		if (staged) {
+			STAGED.endFrame();
+			staged = false;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		var level = mc.level;
 		if (level == null || mc.player == null) return;
@@ -67,7 +80,6 @@ public final class AuroraRenderer {
 		animTime += delta * SkyboxConfig.auroraSpeed;
 
 		Vec3 camera = mc.gameRenderer.mainCamera().position();
-		PoseStack poses = context.poseStack();
 		RenderPipeline pipeline = SkyboxPipelines.AURORA;
 		VertexFormat format = pipeline.getVertexFormatBinding(0);
 		StagedVertexBuffer.Draw draw = STAGED.appendDraw(format, PrimitiveTopology.QUADS, RenderSystem.getProjectionType().vertexSorting());
@@ -90,7 +102,7 @@ public final class AuroraRenderer {
 					now, patchX, patchZ));
 
 				float loaded = smoothstep((now - patch.createdAt) / (float) PATCH_FADE_NANOS);
-				patch.ribbon.render(out, poses.last().pose(), camera.x, camera.y, camera.z,
+				patch.ribbon.render(out, IDENTITY, camera.x, camera.y, camera.z,
 					time, nightFade * loaded);
 			}
 		}
@@ -100,27 +112,23 @@ public final class AuroraRenderer {
 				|| Math.abs(entry.getValue().z - centerPatchZ) > PATCH_RADIUS + 2);
 
 		STAGED.upload();
-		StagedVertexBuffer.ExecuteInfo info = STAGED.getExecuteInfo(draw);
-		if (info != null) {
-			draw(mc, info, pipeline);
-		}
-		STAGED.endFrame();
+		staged = true;
+		pending = STAGED.getExecuteInfo(draw);
 	}
 
-	private static void draw(Minecraft mc, StagedVertexBuffer.ExecuteInfo info, RenderPipeline pipeline) {
+	/** Called from SkyRendererMixin inside vanilla's sky pass; draws what {@link #prepare} uploaded this frame. */
+	public static void drawInSky(RenderPass pass) {
+		StagedVertexBuffer.ExecuteInfo info = pending;
+		if (info == null) return;
+		pending = null;
 		GpuBufferSlice transforms = RenderSystem.getDynamicUniforms().writeTransform(
 			RenderSystem.getModelViewMatrixCopy(), new Vector4f(1, 1, 1, 1), new Vector3f(), new Matrix4f());
-		RenderTarget target = mc.gameRenderer.mainRenderTarget();
-		GpuTextureView color = target.getColorTextureView();
-		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(
-			() -> "Aurora", color, Optional.empty(), target.getDepthTextureView(), OptionalDouble.empty())) {
-			pass.setPipeline((CompiledRenderPipeline) pipeline);
-			RenderSystem.bindDefaultUniforms(pass);
-			pass.setUniform("DynamicTransforms", transforms);
-			pass.setVertexBuffer(0, info.vertexBuffer().slice());
-			pass.setIndexBuffer(info.indexBuffer(), info.indexType());
-			pass.drawIndexed(info.indexCount(), 1, info.firstIndex(), info.baseVertex(), 0);
-		}
+		pass.setPipeline(RenderSystem.getCompiledPipeline(SkyboxPipelines.AURORA));
+		RenderSystem.bindDefaultUniforms(pass);
+		pass.setUniform("DynamicTransforms", transforms);
+		pass.setVertexBuffer(0, info.vertexBuffer().slice());
+		pass.setIndexBuffer(info.indexBuffer(), info.indexType());
+		pass.drawIndexed(info.indexCount(), 1, info.firstIndex(), info.baseVertex(), 0);
 	}
 
 	private static long key(int x, int z) {

@@ -5,8 +5,6 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.renderpearl.api.buffers.GpuBuffer;
 import com.mojang.renderpearl.api.pipeline.BlendFunction;
 import com.mojang.renderpearl.api.pipeline.ColorTargetState;
-import com.mojang.renderpearl.api.pipeline.CompareOp;
-import com.mojang.renderpearl.api.pipeline.DepthStencilState;
 import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import java.nio.ByteBuffer;
@@ -28,14 +26,13 @@ public final class SkyboxPipelines {
 		.build();
 
 	/**
-	 * Aurora is ordinary alpha-blended geometry, not an additive light source. It depth-tests
-	 * against opaque terrain but never writes depth, so later cloud layers remain visible.
+	 * Aurora is ordinary alpha-blended geometry, not an additive light source. It is drawn inside the sky
+	 * pass (before terrain, so terrain covers it) with no depth state, like the other sky pipelines.
 	 * Back-face culling is enabled for closed prisms; the transparent quads are sorted back-to-front
 	 * by the StagedVertexBuffer draw that AuroraRenderer appends.
 	 */
 	public static final RenderPipeline AURORA = quads("aurora")
 		.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))
-		.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
 		.withCull(true)
 		.build();
 

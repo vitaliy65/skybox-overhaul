@@ -15,6 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import skybox.overhaul.client.aurora.AuroraRenderer;
 import skybox.overhaul.client.config.SkyboxConfig;
 import skybox.overhaul.client.night.NightSky;
 import skybox.overhaul.client.render.SkyboxState;
@@ -65,6 +66,7 @@ public class SkyRendererMixin {
 	private void skybox$haze(RenderPass pass, Vector3fc skyColor, CallbackInfo ci) {
 		skybox$haze.render(pass, skybox$zenith);
 		skybox$glow.render(pass);
+		AuroraRenderer.drawInSky(pass);
 	}
 
 	// Vanilla's sunrise/sunset fan: 16-segment triangle fan, blocky next to the sun. TwilightGlow replaces it.
