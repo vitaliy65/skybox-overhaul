@@ -18,18 +18,18 @@ public final class GlowLayers {
 	public record Layer(float sigma, boolean anti, float[] time, float[] elev, int[] rgb, float[] alpha) {}
 
 	public static final Layer[] ALL = {
-		// gold core, hugging the sun
-		new Layer(34, false, new float[]{-10, 2, 14},
-			new float[]{-10, -1, 3, 10, 24}, new int[]{0xFFC060, 0xFFC468, 0xFFC468, 0xFFB866, 0xFFA870}, new float[]{0, 0.85F, 0.75F, 0.45F, 0}),
-		// orange wash, wider and taller
-		new Layer(70, false, new float[]{-11, -1, 10},
-			new float[]{-10, 0, 8, 18, 38}, new int[]{0xFF7A45, 0xFF7A45, 0xFF7A55, 0xFF6E66, 0xF0607A}, new float[]{0, 0.80F, 0.65F, 0.50F, 0}),
-		// pink / magenta, climbs high
-		new Layer(100, false, new float[]{-15, -5, 3},
-			new float[]{-5, 2, 12, 26, 45}, new int[]{0xE0507E, 0xE0507E, 0xD4508C, 0xB04C9E, 0x8A4CA8}, new float[]{0, 0.45F, 0.70F, 0.45F, 0}),
+		// gold core, hugging the sun: hot yellow-orange
+		new Layer(40, false, new float[]{-10, 1, 16},
+			new float[]{-10, -1, 3, 10, 24}, new int[]{0xFFC030, 0xFFD040, 0xFFC838, 0xFFB030, 0xFF9A30}, new float[]{0, 0.95F, 0.85F, 0.55F, 0}),
+		// deep orange wash, wider and taller
+		new Layer(80, false, new float[]{-11, -1, 11},
+			new float[]{-10, 0, 8, 18, 38}, new int[]{0xFF6A00, 0xFF6A00, 0xFF5E10, 0xFF5028, 0xF03C48}, new float[]{0, 0.90F, 0.78F, 0.60F, 0}),
+		// crimson -> magenta, climbs high
+		new Layer(115, false, new float[]{-15, -5, 3},
+			new float[]{-5, 2, 12, 26, 45}, new int[]{0xE0305E, 0xE0305E, 0xD02A70, 0xA82A82, 0x80309A}, new float[]{0, 0.55F, 0.80F, 0.55F, 0}),
 		// violet dome, almost all around the sky
 		new Layer(150, false, new float[]{-19, -9, -1},
-			new float[]{0, 15, 32, 52, 70}, new int[]{0x7A4FB0, 0x7A4FB0, 0x6A50B0, 0x5450AA, 0x4A50A8}, new float[]{0, 0.35F, 0.55F, 0.30F, 0}),
+			new float[]{0, 15, 32, 52, 70}, new int[]{0x7A3CB8, 0x7A3CB8, 0x6840B8, 0x4C44B0, 0x3C46AC}, new float[]{0, 0.40F, 0.60F, 0.35F, 0}),
 		// Belt of Venus: blue earth-shadow below, pink band above, centred opposite the sun
 		new Layer(75, true, new float[]{-12, -5, 1},
 			new float[]{-4, 0, 4, 9, 16, 26}, new int[]{0x4A5A98, 0x4A5A98, 0x7A6AA8, 0xF0A0BC, 0xF4A8C0, 0xF0A0BC}, new float[]{0, 0.55F, 0.55F, 0.55F, 0.30F, 0}),
