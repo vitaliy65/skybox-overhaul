@@ -26,10 +26,10 @@ public final class SkyboxPipelines {
 		.build();
 
 	/**
-	 * Aurora is ordinary alpha-blended geometry, not an additive light source. It is drawn inside the sky
+	 * Aurora uses vanilla's LIGHTNING blend. It is drawn inside the sky
 	 * pass (before terrain, so terrain covers it) with no depth state, like the other sky pipelines.
-	 * Back-face culling is enabled for closed prisms; the transparent quads are sorted back-to-front
-	 * by the StagedVertexBuffer draw that AuroraRenderer appends.
+	 * Back-face culling is enabled for closed prisms. Quads are not sorted: LIGHTNING blending is additive
+	 * (SRC_ALPHA, ONE), so draw order does not change the result.
 	 */
 	public static final RenderPipeline AURORA = quads("aurora")
 		.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))
