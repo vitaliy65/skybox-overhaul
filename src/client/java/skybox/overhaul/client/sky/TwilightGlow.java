@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.sky;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
@@ -16,6 +16,8 @@ import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+import skybox.overhaul.client.render.SkyboxPipelines;
+import skybox.overhaul.client.render.SkyboxState;
 
 /**
  * Sunrise / sunset glow that actually fills the sky. Static mesh of {@link GlowLayers} (vertex colours baked

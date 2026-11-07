@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.cloud;
 
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.minecraft.client.CloudStatus;
@@ -6,6 +6,7 @@ import net.minecraft.client.renderer.CloudRenderer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.world.phys.Vec3;
+import skybox.overhaul.client.render.SkyboxState;
 
 /**
  * Two extra vanilla CloudRenderer instances with independent masks and subtle weather response.

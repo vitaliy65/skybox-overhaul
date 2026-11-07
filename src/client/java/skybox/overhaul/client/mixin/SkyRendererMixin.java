@@ -2,6 +2,7 @@ package skybox.overhaul.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.SkyRenderer;
 import net.minecraft.client.renderer.state.level.SkyRenderState;
@@ -11,12 +12,14 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import skybox.overhaul.client.HorizonHaze;
-import skybox.overhaul.client.NightSky;
-import skybox.overhaul.client.SkyPalette;
-import skybox.overhaul.client.SkyboxConfig;
-import skybox.overhaul.client.SkyboxState;
-import skybox.overhaul.client.TwilightGlow;
+import skybox.overhaul.client.config.SkyboxConfig;
+import skybox.overhaul.client.night.NightSky;
+import skybox.overhaul.client.render.SkyboxState;
+import skybox.overhaul.client.sky.BiomeGroups;
+import skybox.overhaul.client.sky.BiomeSky;
+import skybox.overhaul.client.sky.HorizonHaze;
+import skybox.overhaul.client.sky.SkyPalette;
+import skybox.overhaul.client.sky.TwilightGlow;
 
 @Mixin(SkyRenderer.class)
 public class SkyRendererMixin {
@@ -68,6 +71,10 @@ public class SkyRendererMixin {
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void skybox$zenith(ClientLevel level, float partialTicks, Camera camera, SkyRenderState state, CallbackInfo ci) {
 		SkyboxState.rainLevel = level.getRainLevel(partialTicks);
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player != null) {
+			BiomeSky.update(BiomeGroups.of(level.getBiome(mc.player.blockPosition())));
+		}
 		if (state.skybox == Skybox.NONE || state.skybox == Skybox.END) {
 			return;
 		}

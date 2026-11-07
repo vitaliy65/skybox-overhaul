@@ -3,11 +3,11 @@
 ## Current Focus
 v1.2.0: конфиг через Mod Menu (`SkyboxConfig` + `SkyboxConfigScreen`) и полировка. Ждём запуск в игре и правки пользователя.
 
-## Latest (переключатель солнца/луны = встроенный ресурспак)
-- Кодовая отрисовка светил убрана (`Celestials`, миксины `renderSun/renderMoon`, пайплайн, `customCelestials`): в игре луна рисовалась поверх солнца. Пользователю нравится вид через текстуры («идеально»).
-- Текстуры (sun.png, moon/<фаза>.png, 1024x1024, свечение запечено) лежат во встроенном паке `src/main/resources/resourcepacks/celestials/assets/minecraft/textures/environment/celestial/`, регистрируется в `SkyboxOverhaulClient` через `ResourceLoader.registerBuiltinPack(..., PackActivationType.DEFAULT_ENABLED)`. Выключить: Настройки > Ресурспаки.
-- НЕ компилировалось: сигнатура/пакеты `ResourceLoader`, `PackActivationType` (Fabric API 0.161.0+26.2) взяты по памяти. Если сборка падает, смотреть сначала их (раньше был `ResourceManagerHelper.registerBuiltinResourcePack`). Не проверено в игре: что у встроенного пака нет pack.mcmeta (Fabric должен сгенерировать сам).
-- Тело светил ~2.6-3x меньше ванильного (ванильный квад 60/40 блоков, тело на PNG 389/1024 и 263/1024).
+## Latest (биомные цвета неба + структура пакетов)
+- Новое: `sky/BiomeSky` (чистая Java, самотест) + `sky/BiomeGroups` (MC). Группы: SNOW (температура <= 0.05, как у сияния), OCEAN, DESERT, BADLANDS, SAVANNA, JUNGLE, SWAMP (+mangrove), CHERRY. Остальные без тинта. Цвета мягкие, сила `BiomeSky.STRENGTH` = 0.5 (константа, ползунка нет, добавить если попросят).
+- Структура: файлы разложены по пакетам `config/ sky/ night/ cloud/ aurora/ render/ mixin/` (см. README, systemPatterns). `fabric.mod.json`: modmenu-entrypoint = `...client.config.SkyboxModMenu`. `SkyPalette.mix` стал public. Удалены мёртвые `src/main/java` (SkyboxOverhaul, ExampleMixin), `skybox-overhaul.mixins.json` (main), `ExampleClientMixin` (не были подключены).
+- Проверено Claude: javac по всем исходникам (ошибок доступа/импортов между пакетами нет, остались только символы MC), самотесты `SkyboxConfig`, `SkyPalette`, `BiomeSky`, `GlowLayers` проходят. НЕ проверено: игра; сигнатуры MC в `BiomeGroups` (`Holder.is(ResourceKey)`, `Holder.is(TagKey)`, `BiomeTags.IS_OCEAN/IS_BADLANDS/IS_SAVANNA/IS_JUNGLE`, `Biomes.DESERT/SWAMP/MANGROVE_SWAMP/CHERRY_GROVE`), `camera`-less выбор биома через `mc.player.blockPosition()` (как у сияния).
+- Предыдущее: переключатель солнца/луны = встроенный ресурспак `resourcepacks/celestials` (регистрация `ResourceLoader.registerBuiltinPack` в `SkyboxOverhaulClient`, тоже НЕ компилировалась); кодовая отрисовка светил удалена; тело светил ~2.6-3x меньше ванильного.
 
 ## Previous (v1.5.0, змейки сияния: частота, волна высоты, ячейка 8..32)
 - `auroraFrequency` (0..1, дефолт 0.4, ползунок «Частота змеек»): патч всегда генерит `MAX_RIBBONS`=8 цепочек, у каждой фиксированный порог `appear`; рисуется, если `appear < frequency`. Живой ползунок, раскладка не перетасовывается. `appearAt[x][z]` заменил `occupied` в `hasCell` (грани между скрытыми и видимыми цепочками не режутся).

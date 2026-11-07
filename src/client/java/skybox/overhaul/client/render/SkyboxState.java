@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.render;
 
 import org.joml.Vector4f;
 

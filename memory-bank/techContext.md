@@ -5,7 +5,7 @@ Java 25, Fabric Loom `net.fabricmc.fabric-loom` `1.19-SNAPSHOT`, Fabric Loader 0
 
 ## Development Setup
 `./gradlew runClient`. Source sets разделены (`splitEnvironmentSourceSets`): `src/main` (общий, почти пустой), `src/client` (весь код). Конфиг миксинов: `src/client/resources/skybox-overhaul.client.mixins.json`.
-Самопроверки (чистая Java): скомпилировать `SkyPalette`, `GlowLayers`, `SkyboxConfig` вместе и запустить каждый `java -ea -cp out skybox.overhaul.client.<Имя>` (печатают `... OK`). Одиночный `java -ea X.java` не работает на JDK < 22, т.к. классы зависят друг от друга.
+Самопроверки (чистая Java): скомпилировать `SkyboxConfig`, `SkyPalette`, `BiomeSky`, `GlowLayers` вместе и запустить каждый `java -ea -cp out skybox.overhaul.client.<пакет>.<Имя>` (config.SkyboxConfig, sky.SkyPalette, sky.BiomeSky, sky.GlowLayers) (печатают `... OK`). Одиночный `java -ea X.java` не работает на JDK < 22, т.к. классы зависят друг от друга.
 
 ## Technical Constraints
 - В среде Claude нет доступа к Maven Fabric/Mojang: **код мода ни разу не компилировался и не запускался Claude**. Проверяет только пользователь.
@@ -30,3 +30,6 @@ Fabric API + Mod Menu (`modmenu_version`: 26.1 -> 18.0.2, 26.2 -> 20.0.3, 26.3 -
 
 ## НЕПРОВЕРЕННЫЕ предположения (первым делом смотреть в логе при ошибке)
 `Mth.TWO_PI`, `Minecraft#getDeltaTracker()`, что `core/position_color` умножает на `ColorModulator`, что pipeline регистрируется вовремя до прекомпиляции шейдеров, что несколько `drawIndexed` с разными `setUniform` в одном pass работают, что `RenderSystem.getModelViewStack()` внутри `renderSkyDisc` = только поворот камеры.
+
+
+Проверка переносов пакетов без Minecraft: `java -m jdk.compiler/com.sun.tools.javac.Main -proc:none -XDshould-stop.ifError=FLOW -d out $(find src/client/java -name '*.java')`, затем смотреть только ошибки про доступ (`is not public`, `private access`) и про свои классы; остальное (`cannot find symbol` по MC) ожидаемо.

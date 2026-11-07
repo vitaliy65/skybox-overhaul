@@ -18,10 +18,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import skybox.overhaul.client.CloudLayers;
-import skybox.overhaul.client.CloudLighting;
-import skybox.overhaul.client.CloudTextureOverride;
-import skybox.overhaul.client.SkyboxState;
+import skybox.overhaul.client.cloud.CloudLayers;
+import skybox.overhaul.client.cloud.CloudLighting;
+import skybox.overhaul.client.cloud.CloudTextureOverride;
+import skybox.overhaul.client.render.SkyboxState;
 
 @Mixin(CloudRenderer.class)
 public abstract class CloudRendererMixin implements CloudTextureOverride {

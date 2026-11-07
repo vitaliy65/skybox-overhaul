@@ -1,7 +1,7 @@
 # System Patterns
 
 ## Architecture Overview
-Всё в `src/client/java/skybox/overhaul/client/`. Миксины тонкие, логика в обычных классах.
+Всё в `src/client/java/skybox/overhaul/client/`, по пакетам: `config/` (SkyboxConfig, Screen, ModMenu), `sky/` (SkyPalette, BiomeSky, BiomeGroups, HorizonHaze, TwilightGlow, GlowLayers), `night/` (NightSky), `cloud/`, `aurora/`, `render/` (SkyboxPipelines, SkyboxState), `mixin/`; в корне только `SkyboxOverhaulClient`. Миксины тонкие, логика в обычных классах.
 
 | Файл | Роль |
 |---|---|
@@ -31,3 +31,5 @@
 ## Critical Implementation Paths
 Порядок в `LevelRenderer.addSkyPass`: `renderSkyDisc` -> `renderSunriseAndSunset` -> `renderSunMoonAndStars` (внутри `renderSun`, `renderMoon`, `renderStars`) -> `renderDarkDisc`. Haze рисуется сразу после диска (под закатным свечением, солнцем, луной, звёздами).
 Туман: `FogRenderer.setupFog` -> `computeFogColor` -> `AtmosphericFogEnvironment.getBaseColor` (наш inject).
+
+- **Биомные цвета неба**: `BiomeSky` (чистая Java) хранит сглаженный тинт (цвета + amount, постоянная ~1.5 с) и подмешивается в конце `SkyPalette.fog()/sky()` с весом `amount * STRENGTH(0.5) * paletteStrength * daylight(s) * (1 - дождь)`; ночью и на закате 0 (закатом владеет `GlowLayers`). `BiomeGroups` (MC) сопоставляет биом группе, `update` зовётся раз за кадр в `SkyRendererMixin.skybox$zenith` до раннего return. Мягкие цвета намеренно (между реалом и ваниллой).

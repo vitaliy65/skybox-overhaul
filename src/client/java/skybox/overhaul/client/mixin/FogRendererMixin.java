@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import skybox.overhaul.client.SkyboxState;
+import skybox.overhaul.client.render.SkyboxState;
 
 @Mixin(FogRenderer.class)
 public class FogRendererMixin {

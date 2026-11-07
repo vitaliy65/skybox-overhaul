@@ -1,4 +1,6 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.sky;
+
+import skybox.overhaul.client.config.SkyboxConfig;
 
 /**
  * Sun height -> sky colours. s = sin(sun elevation) = cos(vanilla sun angle):
@@ -14,14 +16,16 @@ public final class SkyPalette {
 
 	private SkyPalette() {}
 
-	/** Fog colour: vanilla blended toward the palette horizon colour. */
+	/** Fog colour: vanilla blended toward the palette horizon colour, then the biome tint on top. */
 	public static int fog(int vanilla, float sunAngleRad, float rain) {
-		return mix(vanilla, sample(HORIZON, sunAngleRad), SkyboxConfig.paletteStrength * (1.0F - rain));
+		int palette = mix(vanilla, sample(HORIZON, sunAngleRad), SkyboxConfig.paletteStrength * (1.0F - rain));
+		return BiomeSky.tint(palette, true, sunAngleRad, rain);
 	}
 
-	/** Sky disc colour: vanilla blended toward the palette zenith colour. */
+	/** Sky disc colour: vanilla blended toward the palette zenith colour, then the biome tint on top. */
 	public static int sky(int vanilla, float sunAngleRad, float rain) {
-		return mix(vanilla, sample(ZENITH, sunAngleRad), SkyboxConfig.paletteStrength * (1.0F - rain));
+		int palette = mix(vanilla, sample(ZENITH, sunAngleRad), SkyboxConfig.paletteStrength * (1.0F - rain));
+		return BiomeSky.tint(palette, false, sunAngleRad, rain);
 	}
 
 	private static int sample(int[] colors, float sunAngleRad) {
@@ -32,7 +36,7 @@ public final class SkyPalette {
 	}
 
 	/** Per-channel lerp, result always opaque. */
-	static int mix(int a, int b, float t) {
+	public static int mix(int a, int b, float t) {
 		int out = 0xFF000000;
 		for (int shift = 16; shift >= 0; shift -= 8) {
 			float ca = (a >> shift) & 0xFF, cb = (b >> shift) & 0xFF;

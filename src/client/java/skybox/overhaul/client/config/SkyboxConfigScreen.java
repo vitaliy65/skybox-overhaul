@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.config;
 
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
@@ -11,6 +11,7 @@ import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import skybox.overhaul.client.SkyboxOverhaulClient;
 
 /**
  * Mod Menu config screen on vanilla widgets only (no Cloth Config). Two columns: sky on the left, aurora on the

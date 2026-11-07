@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.render;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;

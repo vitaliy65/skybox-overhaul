@@ -1,4 +1,6 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.cloud;
+
+import skybox.overhaul.client.sky.GlowLayers;
 
 /** Values packed into the two std140 padding floats of vanilla CloudInfo. */
 public final class CloudLighting {

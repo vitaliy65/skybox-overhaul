@@ -18,14 +18,14 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
-import skybox.overhaul.client.SkyboxConfig;
-import skybox.overhaul.client.SkyboxPipelines;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Random;
+import skybox.overhaul.client.config.SkyboxConfig;
+import skybox.overhaul.client.render.SkyboxPipelines;
 
 /** Loads nearby aurora patches and fades each new patch in. */
 public final class AuroraRenderer {

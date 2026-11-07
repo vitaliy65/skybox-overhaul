@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.cloud;
 
 import net.minecraft.client.renderer.CloudRenderer;
 import net.minecraft.resources.Identifier;
