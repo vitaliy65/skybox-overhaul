@@ -10,12 +10,12 @@ import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.blaze3d.PrimitiveTopology;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
+import java.util.Optional;
 import java.util.Random;
 import java.util.SplittableRandom;
 import net.minecraft.client.Minecraft;
@@ -115,7 +115,7 @@ public final class NightSky implements AutoCloseable {
 		starIndexCount = stars.size() * 6;
 
 		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized(stars.size() * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
-			BufferBuilder b = new BufferBuilder(bb, Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+			BufferBuilder b = new BufferBuilder(bb, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
 			for (Star s : stars) {
 				for (int k = 0; k < 4; k++) {
 					b.addVertex(s.v()[k * 3], s.v()[k * 3 + 1], s.v()[k * 3 + 2]).setColor(s.color());
@@ -130,7 +130,7 @@ public final class NightSky implements AutoCloseable {
 	/** Comet in local space: head at (0,100,0), tail trailing along +X, squares shrinking and fading. */
 	private GpuBuffer buildComet() {
 		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized((2 + COMET_TAIL) * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
-			BufferBuilder b = new BufferBuilder(bb, Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+			BufferBuilder b = new BufferBuilder(bb, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
 			quad(b, 0.0F, 0.9F, 0x30B0D0FF); // soft halo
 			quad(b, 0.0F, 0.28F, 0xFFFFFFFF); // head
 			for (int k = 1; k <= COMET_TAIL; k++) {
@@ -217,29 +217,29 @@ public final class NightSky implements AutoCloseable {
 			}
 		}
 
-		GpuTextureView color = Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
-		GpuTextureView depthTex = Minecraft.getInstance().getMainRenderTarget().getDepthTextureView();
-		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(Mode.QUADS);
+		GpuTextureView color = Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
+		GpuTextureView depthTex = Minecraft.getInstance().gameRenderer.mainRenderTarget().getDepthTextureView();
+		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 		GpuBuffer indices = quads.getBuffer(starIndexCount);
 
-		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Night sky", color, OptionalInt.empty(), depthTex, OptionalDouble.empty())) {
+		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Night sky", color, Optional.empty(), depthTex, OptionalDouble.empty())) {
 			pass.setPipeline(SkyboxPipelines.NIGHT);
 			RenderSystem.bindDefaultUniforms(pass);
 			pass.setIndexBuffer(indices, quads.type());
-			pass.setVertexBuffer(0, starBuffer);
+			pass.setVertexBuffer(0, starBuffer.slice());
 			int baseVertex = 0;
 			for (int b = 0; b < BUCKETS; b++) {
 				if (bucketStars[b] > 0) {
 					pass.setUniform("DynamicTransforms", slices[b]);
-					pass.drawIndexed(baseVertex, 0, bucketStars[b] * 6, 1);
+					pass.drawIndexed(bucketStars[b] * 6, 1, 0, baseVertex, 0);
 					baseVertex += bucketStars[b] * 4;
 				}
 			}
 			if (!cometSlices.isEmpty()) {
-				pass.setVertexBuffer(0, cometBuffer);
+				pass.setVertexBuffer(0, cometBuffer.slice());
 				for (GpuBufferSlice c : cometSlices) {
 					pass.setUniform("DynamicTransforms", c);
-					pass.drawIndexed(0, 0, (2 + COMET_TAIL) * 6, 1);
+					pass.drawIndexed((2 + COMET_TAIL) * 6, 1, 0, 0, 0);
 				}
 			}
 		}

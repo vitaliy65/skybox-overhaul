@@ -3,8 +3,7 @@ package skybox.overhaul.client.mixin;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.renderer.CloudRenderer;
 import net.minecraft.client.renderer.MappableRingBuffer;
@@ -83,8 +82,7 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
                 ? CloudLighting.twilightStrength(SkyboxState.sunAngle, SkyboxState.rainLevel)
                 : 0.0F;
 
-        try (GpuBuffer.MappedView view = RenderSystem.getDevice().createCommandEncoder()
-                .mapBuffer(this.ubo.currentBuffer(), false, true)) {
+        try (GpuBufferSlice.MappedView view = this.ubo.currentBuffer().map(false, true)) {
             ByteBuffer data = view.data();
             data.putFloat(28, sunDirection);
             data.putFloat(44, twilight);

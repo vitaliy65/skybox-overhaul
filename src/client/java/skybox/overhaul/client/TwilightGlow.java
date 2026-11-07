@@ -9,9 +9,9 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.blaze3d.PrimitiveTopology;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
+import java.util.Optional;
 import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -40,7 +40,7 @@ public final class TwilightGlow implements AutoCloseable {
 			totalQuads += quadCount[i];
 		}
 		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized(totalQuads * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
-			BufferBuilder b = new BufferBuilder(bb, Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+			BufferBuilder b = new BufferBuilder(bb, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
 			for (int i = 0; i < LAYERS; i++) {
 				GlowLayers.Layer layer = GlowLayers.ALL[i];
 				for (int j = 0; j < GlowLayers.COLUMNS; j++) {
@@ -78,7 +78,7 @@ public final class TwilightGlow implements AutoCloseable {
 		boolean any = false;
 		// local +X = sun side; sun sets toward -X, so turn the mesh half a circle in the afternoon
 		boolean west = GlowLayers.sunInWest(SkyboxState.sunAngle) != GlowLayers.FLIP_SIDE;
-		Matrix4f mv = new Matrix4f(RenderSystem.getModelViewMatrix()).rotateY(west ? (float) Math.PI : 0.0F);
+		Matrix4f mv = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).rotateY(west ? (float) Math.PI : 0.0F);
 		for (int i = 0; i < LAYERS; i++) {
 			float w = GlowLayers.weight(GlowLayers.ALL[i], elev) * rain;
 			if (w > 0.002F) {
@@ -90,20 +90,20 @@ public final class TwilightGlow implements AutoCloseable {
 			return; // daytime / deep night: nothing to draw
 		}
 
-		GpuTextureView color = Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
-		GpuTextureView depth = Minecraft.getInstance().getMainRenderTarget().getDepthTextureView();
-		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(Mode.QUADS);
+		GpuTextureView color = Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
+		GpuTextureView depth = Minecraft.getInstance().gameRenderer.mainRenderTarget().getDepthTextureView();
+		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 		GpuBuffer indices = quads.getBuffer(totalQuads * 6);
 
-		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Twilight glow", color, OptionalInt.empty(), depth, OptionalDouble.empty())) {
+		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Twilight glow", color, Optional.empty(), depth, OptionalDouble.empty())) {
 			pass.setPipeline(SkyboxPipelines.HAZE); // plain alpha-blended position_color quads, same as the haze
 			RenderSystem.bindDefaultUniforms(pass);
-			pass.setVertexBuffer(0, buffer);
+			pass.setVertexBuffer(0, buffer.slice());
 			pass.setIndexBuffer(indices, quads.type());
 			for (int i = 0; i < LAYERS; i++) {
 				if (slices[i] != null) {
 					pass.setUniform("DynamicTransforms", slices[i]);
-					pass.drawIndexed(baseVertex[i], 0, quadCount[i] * 6, 1);
+					pass.drawIndexed(quadCount[i] * 6, 1, 0, baseVertex[i], 0);
 				}
 			}
 		}

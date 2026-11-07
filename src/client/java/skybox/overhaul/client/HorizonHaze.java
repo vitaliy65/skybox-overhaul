@@ -9,9 +9,9 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.blaze3d.PrimitiveTopology;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
+import java.util.Optional;
 import java.util.function.DoubleUnaryOperator;
 import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
@@ -38,7 +38,7 @@ public final class HorizonHaze implements AutoCloseable {
 
 	public HorizonHaze() {
 		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized((BASE_QUADS + HAZE_QUADS) * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
-			BufferBuilder b = new BufferBuilder(bb, Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+			BufferBuilder b = new BufferBuilder(bb, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
 			dome(b, BASE_DEG, e -> {
 				double t = Math.max(0.0, Math.min(1.0, (e - 55.0) / 34.0));
 				return 1.0 - t * t * (3.0 - 2.0 * t);
@@ -71,7 +71,7 @@ public final class HorizonHaze implements AutoCloseable {
 	}
 
 	private static GpuBufferSlice transform(float r, float g, float bl, float alpha) {
-		return RenderSystem.getDynamicUniforms().writeTransform(RenderSystem.getModelViewMatrix(), new Vector4f(r, g, bl, alpha), new Vector3f(), new Matrix4f());
+		return RenderSystem.getDynamicUniforms().writeTransform(RenderSystem.getModelViewMatrixCopy(), new Vector4f(r, g, bl, alpha), new Vector3f(), new Matrix4f());
 	}
 
 	public void render(int skyColor) {
@@ -83,20 +83,20 @@ public final class HorizonHaze implements AutoCloseable {
 		GpuBufferSlice base = transform(((skyColor >> 16) & 0xFF) / 255.0F, ((skyColor >> 8) & 0xFF) / 255.0F, (skyColor & 0xFF) / 255.0F, a);
 		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, a);
 
-		GpuTextureView color = Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
-		GpuTextureView depth = Minecraft.getInstance().getMainRenderTarget().getDepthTextureView();
-		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(Mode.QUADS);
+		GpuTextureView color = Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
+		GpuTextureView depth = Minecraft.getInstance().gameRenderer.mainRenderTarget().getDepthTextureView();
+		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 		GpuBuffer indices = quads.getBuffer((BASE_QUADS + HAZE_QUADS) * 6);
 
-		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Horizon haze", color, OptionalInt.empty(), depth, OptionalDouble.empty())) {
+		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Horizon haze", color, Optional.empty(), depth, OptionalDouble.empty())) {
 			pass.setPipeline(SkyboxPipelines.HAZE);
 			RenderSystem.bindDefaultUniforms(pass);
-			pass.setVertexBuffer(0, buffer);
+			pass.setVertexBuffer(0, buffer.slice());
 			pass.setIndexBuffer(indices, quads.type());
 			pass.setUniform("DynamicTransforms", base);
-			pass.drawIndexed(0, 0, BASE_QUADS * 6, 1);
+			pass.drawIndexed(BASE_QUADS * 6, 1, 0, 0, 0);
 			pass.setUniform("DynamicTransforms", haze);
-			pass.drawIndexed(BASE_QUADS * 4, 0, HAZE_QUADS * 6, 1);
+			pass.drawIndexed(HAZE_QUADS * 6, 1, 0, BASE_QUADS * 4, 0);
 		}
 	}
 

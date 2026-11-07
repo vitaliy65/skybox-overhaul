@@ -10,10 +10,10 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.blaze3d.PrimitiveTopology;
 import java.util.Locale;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
+import java.util.Optional;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.Identifier;
@@ -63,7 +63,7 @@ public final class Celestials implements AutoCloseable {
 
 	private static GpuBuffer quad(String name, float... v) { // 4 x (x, z, u, v), y = 0
 		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized(4 * DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize())) {
-			BufferBuilder b = new BufferBuilder(bb, Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+			BufferBuilder b = new BufferBuilder(bb, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 			for (int i = 0; i < 4; i++) {
 				b.addVertex(v[i * 4], 0.0F, v[i * 4 + 1]).setUv(v[i * 4 + 2], v[i * 4 + 3]).setColor(0xFFFFFFFF);
 			}
@@ -103,20 +103,20 @@ public final class Celestials implements AutoCloseable {
 		GpuBufferSlice slice = RenderSystem.getDynamicUniforms().writeTransform(mv, new Vector4f(1.0F, 1.0F, 1.0F, alpha), new Vector3f(), new Matrix4f());
 		mv.popMatrix();
 
-		GpuTextureView color = Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
-		GpuTextureView depth = Minecraft.getInstance().getMainRenderTarget().getDepthTextureView();
-		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(Mode.QUADS);
+		GpuTextureView color = Minecraft.getInstance().gameRenderer.mainRenderTarget().getColorTextureView();
+		GpuTextureView depth = Minecraft.getInstance().gameRenderer.mainRenderTarget().getDepthTextureView();
+		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
 		GpuBuffer indices = quads.getBuffer(6);
 
-		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> label, color, OptionalInt.empty(), depth, OptionalDouble.empty())) {
+		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> label, color, Optional.empty(), depth, OptionalDouble.empty())) {
 			pass.setPipeline(SkyboxPipelines.CELESTIAL);
 			RenderSystem.bindDefaultUniforms(pass);
 			pass.setUniform("DynamicTransforms", slice);
 			// NEAREST keeps the pixel-art body crisp; the PNGs are 1024 px so the baked glow stays smooth anyway.
 			pass.bindTexture("Sampler0", tex.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
 			pass.setIndexBuffer(indices, quads.type());
-			pass.setVertexBuffer(0, quad);
-			pass.drawIndexed(0, 0, 6, 1);
+			pass.setVertexBuffer(0, quad.slice());
+			pass.drawIndexed(6, 1, 0, 0, 0);
 		}
 	}
 

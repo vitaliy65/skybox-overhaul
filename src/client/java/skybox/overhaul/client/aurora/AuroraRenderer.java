@@ -1,7 +1,20 @@
 package skybox.overhaul.client.aurora;
 
+import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
+import net.minecraft.client.renderer.StagedVertexBuffer;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
@@ -10,6 +23,8 @@ import skybox.overhaul.client.SkyboxPipelines;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Random;
 
 /** Loads nearby aurora patches and fades each new patch in. */
@@ -19,6 +34,8 @@ public final class AuroraRenderer {
 	private static final long PATCH_FADE_NANOS = 1_650_000_000L;
 	private static final float NIGHT_FADE_SECONDS = 4.0f;
 	private static final Map<Long, Patch> CACHE = new HashMap<>();
+
+	private static final StagedVertexBuffer STAGED = new StagedVertexBuffer(() -> "Skybox aurora", RenderType.SMALL_BUFFER_SIZE);
 
 	private static float nightFade;
 	private static double animTime; // Animation clock in seconds; the speed setting scales how fast it runs.
@@ -48,9 +65,12 @@ public final class AuroraRenderer {
 		if (nightFade == 0) return;
 		animTime += delta * SkyboxConfig.auroraSpeed;
 
-		Vec3 camera = mc.gameRenderer.getMainCamera().position();
+		Vec3 camera = mc.gameRenderer.mainCamera().position();
 		PoseStack poses = context.poseStack();
-		VertexConsumer out = context.bufferSource().getBuffer(SkyboxPipelines.AURORA_TYPE);
+		RenderPipeline pipeline = SkyboxPipelines.AURORA;
+		VertexFormat format = pipeline.getVertexFormatBinding(0);
+		StagedVertexBuffer.Draw draw = STAGED.appendDraw(format, PrimitiveTopology.QUADS, RenderSystem.getProjectionType().vertexSorting());
+		VertexConsumer out = STAGED.getVertexBuilder(draw);
 		float time = (float) animTime;
 		float cellSize = SkyboxConfig.auroraGridCellSize;
 		int cameraCellX = (int) Math.floor(camera.x / cellSize);
@@ -77,6 +97,29 @@ public final class AuroraRenderer {
 		CACHE.entrySet().removeIf(entry ->
 			Math.abs(entry.getValue().x - centerPatchX) > PATCH_RADIUS + 2
 				|| Math.abs(entry.getValue().z - centerPatchZ) > PATCH_RADIUS + 2);
+
+		STAGED.upload();
+		StagedVertexBuffer.ExecuteInfo info = STAGED.getExecuteInfo(draw);
+		if (info != null) {
+			draw(mc, info, pipeline);
+		}
+		STAGED.endFrame();
+	}
+
+	private static void draw(Minecraft mc, StagedVertexBuffer.ExecuteInfo info, RenderPipeline pipeline) {
+		GpuBufferSlice transforms = RenderSystem.getDynamicUniforms().writeTransform(
+			RenderSystem.getModelViewMatrixCopy(), new Vector4f(1, 1, 1, 1), new Vector3f(), new Matrix4f());
+		RenderTarget target = mc.gameRenderer.mainRenderTarget();
+		GpuTextureView color = target.getColorTextureView();
+		try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(
+			() -> "Aurora", color, Optional.empty(), target.getDepthTextureView(), OptionalDouble.empty())) {
+			pass.setPipeline(pipeline);
+			RenderSystem.bindDefaultUniforms(pass);
+			pass.setUniform("DynamicTransforms", transforms);
+			pass.setVertexBuffer(0, info.vertexBuffer().slice());
+			pass.setIndexBuffer(info.indexBuffer(), info.indexType());
+			pass.drawIndexed(info.indexCount(), 1, info.firstIndex(), info.baseVertex(), 0);
+		}
 	}
 
 	private static long key(int x, int z) {

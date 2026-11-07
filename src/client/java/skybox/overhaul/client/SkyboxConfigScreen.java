@@ -102,7 +102,7 @@ public final class SkyboxConfigScreen extends Screen {
 	@Override
 	public void onClose() {
 		SkyboxConfig.save(SkyboxOverhaulClient.CONFIG);
-		this.minecraft.setScreen(this.parent);
+		this.minecraft.setScreenAndShow(this.parent);
 	}
 
 	/** Slider whose displayed/stored value is mapped to a numeric range, shown with a fixed number of decimals. */

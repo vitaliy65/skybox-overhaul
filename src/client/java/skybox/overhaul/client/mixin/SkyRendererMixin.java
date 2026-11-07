@@ -5,8 +5,6 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.SkyRenderer;
 import net.minecraft.client.renderer.state.level.SkyRenderState;
-import net.minecraft.client.renderer.texture.TextureManager;
-import net.minecraft.client.resources.model.sprite.AtlasManager;
 import net.minecraft.world.level.MoonPhase;
 import net.minecraft.world.level.dimension.DimensionType.Skybox;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,7 +32,7 @@ public class SkyRendererMixin {
 	private Celestials skybox$celestials;
 
 	@Inject(method = "<init>", at = @At("TAIL"))
-	private void skybox$initNight(TextureManager textureManager, AtlasManager atlasManager, CallbackInfo ci) {
+	private void skybox$initNight(CallbackInfo ci) {
 		skybox$night = new NightSky();
 		skybox$haze = new HorizonHaze();
 		skybox$glow = new TwilightGlow();
