@@ -77,6 +77,7 @@ public class SkyRendererMixin {
 
 	// Sky disc colour (zenith). Fog (horizon) is handled in AtmosphericFogEnvironmentMixin;
 	// vanilla's sky shader fades disc -> fog colour toward the horizon = the gradient.
+	// 26.3 no longer gives us SkyRenderState in a hook we know, so the per-frame sky state is read here, at the start of the disc draw.
 	@ModifyVariable(method = "renderSkyDisc", at = @At("HEAD"), argsOnly = true, index = 2)
 	private Vector3fc skybox$zenith(Vector3fc skyColor) {
 		int vanilla = skybox$pack(skyColor);

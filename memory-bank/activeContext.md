@@ -1,5 +1,10 @@
 # Active Context
 
+## Latest (насыщенный закат по референсу "Sunset of Seven Suns")
+- `SkyPalette`: HORIZON/ZENITH ключи заката перекрашены: горизонт жёлто-оранжевый (0xFFC25A -> 0xFF9E2A -> 0xFF6A1E), верх малиново-красный -> пурпур (0xB93A5E -> 0x92306A -> 0x5A2B7A) -> индиго -> ночь. День и ночь не тронуты.
+- `GlowLayers.ALL[0..3]`: насыщеннее и ярче (золото 0xFFD040, оранж 0xFF6A00, малиновый 0xE0305E -> 0x80309A, фиолетовый купол), sigma/alpha больше; Belt of Venus без изменений.
+- Проверено Claude: самотесты SkyPalette/GlowLayers/BiomeSky/SkyboxConfig проходят; превью палитры по ключам. НЕ проверено: игра. Если слишком ярко: `sunsetIntensity` / `paletteStrength` в Mod Menu или alpha в `GlowLayers.ALL`.
+
 ## Latest (26.3: доп. слои облаков не рисовались)
 - Причина: в 26.3 `LevelRenderer` рисует только свой `cloudRenderer`: `render(CloudStatus, RenderPass)` (classic) и `renderOit(CloudStatus, OitStage, GpuTextureView, OitRenderPassProvider.Parameters)` (improved transparency). `prepare(7 args)` вызывается из `prepareTranslucents`. У `MIDDLE`/`UPPER` вызывался только `prepare`.
 - Фикс: `CloudRendererMixin.skybox$drawAdditionalLayers` / `...Oit` (HEAD обоих методов, пропуск для наших экземпляров) -> `CloudLayers.drawAdditional` / `drawAdditionalOit` (UPPER, потом MIDDLE, потом рисует ваниль = задний план первым).
