@@ -1,8 +1,12 @@
 package skybox.overhaul.client.cloud;
 
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.renderer.CloudRenderer;
+import net.minecraft.client.renderer.oit.OitRenderPassProvider;
+import net.minecraft.client.renderer.oit.OitStage;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.world.phys.Vec3;
@@ -85,6 +89,23 @@ public final class CloudLayers {
                 gameTime + UPPER_PHASE_OFFSET,
                 partialTicks
         );
+    }
+
+    /**
+     * 26.3: LevelRenderer draws only its own CloudRenderer, so our extra instances must be drawn by hand.
+     * Called from CloudRendererMixin at the head of vanilla's render: farthest layer first, then the vanilla
+     * (lowest) layer draws after us = back-to-front for a camera below the clouds.
+     */
+    public static void drawAdditional(CloudStatus cloudStatus, RenderPass renderPass) {
+        UPPER.render(cloudStatus, renderPass);
+        MIDDLE.render(cloudStatus, renderPass);
+    }
+
+    /** Same, for improved-transparency (OIT) frames; one call per OIT stage. */
+    public static void drawAdditionalOit(CloudStatus cloudStatus, OitStage stage, GpuTextureView mainDepth,
+                                         OitRenderPassProvider.Parameters params) {
+        UPPER.renderOit(cloudStatus, stage, mainDepth, params);
+        MIDDLE.renderOit(cloudStatus, stage, mainDepth, params);
     }
 
     private static void updateWeatherDrift(long gameTime, float rain) {

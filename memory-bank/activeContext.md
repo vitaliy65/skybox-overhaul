@@ -1,6 +1,21 @@
 # Active Context
 
-## Latest (порт на 26.3: renderpearl + общий RenderPass неба)
+## Latest (26.3: доп. слои облаков не рисовались)
+- Причина: в 26.3 `LevelRenderer` рисует только свой `cloudRenderer`: `render(CloudStatus, RenderPass)` (classic) и `renderOit(CloudStatus, OitStage, GpuTextureView, OitRenderPassProvider.Parameters)` (improved transparency). `prepare(7 args)` вызывается из `prepareTranslucents`. У `MIDDLE`/`UPPER` вызывался только `prepare`.
+- Фикс: `CloudRendererMixin.skybox$drawAdditionalLayers` / `...Oit` (HEAD обоих методов, пропуск для наших экземпляров) -> `CloudLayers.drawAdditional` / `drawAdditionalOit` (UPPER, потом MIDDLE, потом рисует ваниль = задний план первым).
+- UBO `CloudInfo` в 26.3 = 44 байта (`vec4+vec3+vec3`, `Std140SizeCalculator`), padding по смещению 44 нет -> подсветка облаков закатом отключена (лог warn). `rendertype_clouds.*` в 26.3 не используются.
+- НЕ проверено: игра; `renderOit` с общими `cloudParams` для 3 слоёв (общий cloud depth), порядок смешивания.
+
+## Latest (краш 26.3: CloudRendererMixin.writeCloudLighting, IndexOutOfBounds)
+- `data.putFloat(28/44)` в `skybox$writeCloudLighting` падал: смаппленный `ubo` в 26.3 короче 48 байт (раскладка `CloudInfo` изменилась). Временно: проверка `data.limit() < 48` -> лог один раз с реальным размером + return (освещение облаков выключено).
+- Нужно: декомпилированный 26.3 `CloudRenderer` (+ шейдер `clouds.vsh`, раньше `rendertype_clouds`), чтобы портировать раскладку. Наш `rendertype_clouds.*` в 26.3 скорее всего не используется (переименован в `clouds.*`).
+
+## Latest (краш 26.3: getBaseColor теперь Vector3f)
+- Краш при входе в мир: `ClassCastException: Vector3f cannot be cast to Integer` в `AtmosphericFogEnvironmentMixin.skybox$palette`. В 26.3 `AtmosphericFogEnvironment.getBaseColor` возвращает `Vector3f` (RGB 0..1), раньше был `int` ARGB.
+- Фикс: `CallbackInfoReturnable<Vector3f>`, конвертация Vector3f -> ARGB int -> `SkyPalette.fog` -> новый Vector3f. `SkyPalette` не менялся (всё ещё int).
+- НЕ проверено: что компонентов именно 0..1 (не линейное/другое пространство), `FogData.color` всё ещё `Vector4f` (`FogRendererMixin`, `SkyboxState.FOG`), что `@Redirect Vector3fc.dot(FFF)F` в `getBaseColor` до сих пор то самое место (require=1 прошёл на старте, но смысл мог измениться). Если следующий краш в `FogRendererMixin` - смотреть `FogData`.
+
+## Previous (порт на 26.3: renderpearl + общий RenderPass неба)
 - Исправлены только: `render/SkyboxPipelines`, `sky/HorizonHaze`, `sky/TwilightGlow`, `night/NightSky`, `mixin/SkyRendererMixin`.
 - 26.3: `com.mojang.blaze3d.*` (RenderPass, GpuBuffer(Slice), GpuTextureView, RenderPipeline, PrimitiveTopology, BlendFunction, DepthStencilState, CompareOp, IndexType, VertexFormat) переехал в `com.mojang.renderpearl.api.{commands,buffers,textures,pipeline,vertex}`. `RenderSystem`, `PoseStack`, `BufferBuilder`, `ByteBufferBuilder`, `MeshData`, `DefaultVertexFormat` остались в `blaze3d`.
 - `BindGroupLayouts.MATRICES_PROJECTION` удалён: теперь `PROJECTION` + `DYNAMIC_TRANSFORMS`. `RenderPass.setPipeline` берёт `RenderSystem.getCompiledPipeline(pipeline)`. `RenderPipelines.register` не используем (так делают Iris/Sodium), `AURORA_TYPE` (мёртвый) удалён.

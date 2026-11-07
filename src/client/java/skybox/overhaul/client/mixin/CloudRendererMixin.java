@@ -6,6 +6,10 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import net.minecraft.client.renderer.oit.OitRenderPassProvider;
+import net.minecraft.client.renderer.oit.OitStage;
 
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.renderer.CloudRenderer;
@@ -14,6 +18,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.phys.Vec3;
 
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -36,6 +41,9 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
 
     @Unique
     private Identifier skybox$textureOverride;
+
+    @Unique
+    private static boolean skybox$warned;
 
     @Override
     public void skybox$setTextureOverride(Identifier texture) {
@@ -105,6 +113,18 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
 
             ByteBuffer data = view.data();
 
+            // 26.3: CloudInfo layout/size changed -> mapped buffer can be < 48 bytes (IndexOutOfBounds crash).
+            // Skip instead of crashing; log the real size once so the new layout can be ported.
+            if (data.limit() < 48) {
+                if (!skybox$warned) {
+                    skybox$warned = true;
+                    LoggerFactory.getLogger("skybox-overhaul").warn(
+                            "Cloud UBO is {} bytes (expected >= 48): CloudInfo layout changed, cloud lighting disabled",
+                            data.limit());
+                }
+                return;
+            }
+
             data.putFloat(28, sunDirection);
             data.putFloat(44, twilight);
         }
@@ -137,6 +157,33 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
                     gameTime,
                     partialTicks
             );
+        }
+    }
+
+    // 26.3: draw the extra layers right before vanilla draws its own (classic transparency path).
+    @Inject(
+            method = "render(Lnet/minecraft/client/CloudStatus;Lcom/mojang/renderpearl/api/commands/RenderPass;)V",
+            at = @At("HEAD"),
+            require = 1
+    )
+    private void skybox$drawAdditionalLayers(CloudStatus cloudStatus, RenderPass renderPass, CallbackInfo ci) {
+        if (!CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)) {
+            CloudLayers.drawAdditional(cloudStatus, renderPass);
+        }
+    }
+
+    // 26.3: same for improved transparency (OIT), once per stage.
+    @Inject(
+            method = "renderOit(Lnet/minecraft/client/CloudStatus;Lnet/minecraft/client/renderer/oit/OitStage;"
+                    + "Lcom/mojang/renderpearl/api/textures/GpuTextureView;"
+                    + "Lnet/minecraft/client/renderer/oit/OitRenderPassProvider$Parameters;)V",
+            at = @At("HEAD"),
+            require = 1
+    )
+    private void skybox$drawAdditionalLayersOit(CloudStatus cloudStatus, OitStage stage, GpuTextureView mainDepth,
+                                                OitRenderPassProvider.Parameters params, CallbackInfo ci) {
+        if (!CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)) {
+            CloudLayers.drawAdditionalOit(cloudStatus, stage, mainDepth, params);
         }
     }
 }
