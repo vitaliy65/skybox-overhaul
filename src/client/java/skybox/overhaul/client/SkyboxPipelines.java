@@ -63,10 +63,10 @@ public final class SkyboxPipelines {
 			.withCull(true)
 			.build());
 
-	/** Alpha blending requires back-to-front sorting of the individual prism faces. */
+	/** Additive (LIGHTNING) blend is order-independent, so no sortOnUpload: sorting thousands of quads was pure CPU cost. */
 	public static final RenderType AURORA_TYPE = RenderType.create(
 		"skybox_overhaul_aurora",
-		RenderSetup.builder(AURORA).sortOnUpload().createRenderSetup());
+		RenderSetup.builder(AURORA).createRenderSetup());
 
 	/** Touch from the client entrypoint so the pipelines register before shaders precompile. */
 	public static void init() {}

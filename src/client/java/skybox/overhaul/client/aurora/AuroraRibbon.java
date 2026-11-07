@@ -1,13 +1,10 @@
 package skybox.overhaul.client.aurora;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import org.joml.Matrix4f;
-import skybox.overhaul.client.SkyboxConfig;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import skybox.overhaul.client.SkyboxConfig;
 
 /** Sparse aurora made from vertical prisms on an eight-direction square grid. */
 public final class AuroraRibbon {
@@ -34,6 +31,14 @@ public final class AuroraRibbon {
 	private static final float CYAN_POSITION = 0.10f; // Full cyan at 10% height.
 	private static final float VIOLET_POSITION = 0.50f; // Full violet at 20%; remains to the top.
 	private static final float[] VERTICAL_STOPS = verticalStops();
+
+	// Level of detail by distance: far rays are small on screen, so they get fewer gradient bands (fewer vertices).
+	private static final float[] STOPS_FULL = dedupe(VERTICAL_STOPS);
+	private static final float[] STOPS_MID = {0.0f, CYAN_POSITION, 0.3f, VIOLET_POSITION, 0.75f, 1.0f};
+	private static final float[] STOPS_FAR = {0.0f, CYAN_POSITION, VIOLET_POSITION, 1.0f};
+	private static final float LOD_MID_DISTANCE = 1200.0f; // blocks, horizontal
+	private static final float LOD_FAR_DISTANCE = 2400.0f;
+	private static final int MAX_SEGMENT_BYTES = (STOPS_FULL.length * 4 + 4) * 4 * AuroraMesh.VERTEX_BYTES;
 
 	// ---- Animation. Seconds are "animation seconds": the Mod Menu speed slider scales them. ----
 	private static final float WAVE_LENGTH_STEPS = 12.0f; // Distance between two bright crests along a chain, in cells.
@@ -113,6 +118,7 @@ public final class AuroraRibbon {
 			float chainHeight = 0.88f + random.nextFloat() * 0.24f;
 			float chainBrightness = 0.97f + random.nextFloat() * 0.03f;
 			float appear = random.nextFloat(); // 0..1, shown when the frequency setting is above it.
+			Style style = new Style(tint);
 
 			for (int step = 0; step < path.size(); step++) {
 				Cell cell = path.get(step);
@@ -121,7 +127,7 @@ public final class AuroraRibbon {
 				result.add(new Segment(cell.x, cell.z, appear,
 					chainHeight * (0.96f + random.nextFloat() * 0.08f),
 					chainBrightness * (0.99f + random.nextFloat() * 0.01f),
-					step, phase, random.nextFloat() * 0.7f, tint));
+					step, phase, random.nextFloat() * 0.7f, style));
 			}
 		}
 		return result;
@@ -255,14 +261,19 @@ public final class AuroraRibbon {
 		return lerp(HEIGHT_WAVE_MIN, HEIGHT_WAVE_MAX, 0.5f + 0.5f * (0.7f * crest + 0.3f * drift));
 	}
 
-	public void render(VertexConsumer out, Matrix4f matrix,
-			double camX, double camY, double camZ, float time, float fade) {
+	/**
+	 * Writes this patch into {@code out}. X/Z are relative to the anchor (the camera when the mesh is built),
+	 * Y is absolute; the renderer translates the whole mesh by (anchor - camera) every frame.
+	 */
+	public void render(AuroraMesh out, double anchorX, double anchorZ, float time, float fade) {
 		float cellSize = SkyboxConfig.auroraGridCellSize;
 		float height = SkyboxConfig.auroraHeight;
 		float halfCell = cellSize * 0.5f;
 		float brightness = SkyboxConfig.auroraBrightness;
 		boolean flares = SkyboxConfig.auroraFlares;
 		float frequency = SkyboxConfig.auroraFrequency;
+		float midSq = LOD_MID_DISTANCE * LOD_MID_DISTANCE;
+		float farSq = LOD_FAR_DISTANCE * LOD_FAR_DISTANCE;
 
 		for (Segment segment : segments) {
 			if (segment.appear >= frequency) continue;
@@ -273,16 +284,18 @@ public final class AuroraRibbon {
 			// One axis-aligned square per cell. A diagonal move only changes the cell position.
 			double centerX = (patchCellX + segment.x + 0.5) * cellSize;
 			double centerZ = (patchCellZ + segment.z + 0.5) * cellSize;
-			float x0 = (float) (centerX - halfCell - camX);
-			float x1 = (float) (centerX + halfCell - camX);
-			float z0 = (float) (centerZ - halfCell - camZ);
-			float z1 = (float) (centerZ + halfCell - camZ);
-			float bottom = baseY - (float) camY;
+			float dx = (float) (centerX - anchorX);
+			float dz = (float) (centerZ - anchorZ);
+			float distSq = dx * dx + dz * dz;
+			Lod lod = distSq < midSq ? segment.style.full : distSq < farSq ? segment.style.mid : segment.style.far;
+
+			float bottom = baseY;
 			// Brighter rays stretch a little higher; the top is faded out, so the uneven skyline stays invisible.
 			float top = bottom + height * segment.heightScale * lerp(HEIGHT_MIN, HEIGHT_MAX, activity)
 				* heightWave(segment.step, segment.phase, time);
 
-			drawPrism(out, matrix, x0, x1, z0, z1, bottom, top, strength, segment.tint,
+			out.ensure(MAX_SEGMENT_BYTES);
+			drawPrism(out, dx - halfCell, dx + halfCell, dz - halfCell, dz + halfCell, bottom, top, strength, lod,
 				hasCell(segment.x - 1, segment.z), hasCell(segment.x + 1, segment.z),
 				hasCell(segment.x, segment.z - 1), hasCell(segment.x, segment.z + 1));
 		}
@@ -292,43 +305,46 @@ public final class AuroraRibbon {
 		return x >= 0 && x < PATCH_CELLS && z >= 0 && z < PATCH_CELLS && appearAt[x][z] < SkyboxConfig.auroraFrequency;
 	}
 
-	private static void drawPrism(VertexConsumer out, Matrix4f matrix,
-			float x0, float x1, float z0, float z1, float bottom, float top,
-			float strength, float tint, boolean west, boolean east, boolean north, boolean south) {
-		float[] x = {x0, x1, x1, x0};
-		float[] z = {z0, z0, z1, z1};
+	private static void drawPrism(AuroraMesh out, float x0, float x1, float z0, float z1, float bottom, float top,
+			float strength, Lod lod, boolean west, boolean east, boolean north, boolean south) {
+		float height = top - bottom;
+		int bands = lod.stops.length - 1;
+		for (int band = 0; band < bands; band++) {
+			float yLow = bottom + height * lod.stops[band];
+			float yHigh = bottom + height * lod.stops[band + 1];
+			byte lowA = alphaByte(lod.alpha[band] * strength);
+			byte highA = alphaByte(lod.alpha[band + 1] * strength);
+			byte lr = lod.r[band], lg = lod.g[band], lb = lod.b[band];
+			byte hr = lod.r[band + 1], hg = lod.g[band + 1], hb = lod.b[band + 1];
 
-		for (int band = 0; band < VERTICAL_STOPS.length - 1; band++) {
-			float low = VERTICAL_STOPS[band];
-			float high = VERTICAL_STOPS[band + 1];
-			if (high <= low) continue;
-			float yLow = bottom + (top - bottom) * low;
-			float yHigh = bottom + (top - bottom) * high;
-			Color lowColor = colorAt(low, tint);
-			Color highColor = colorAt(high, tint);
-			float lowAlpha = alphaAt(low, strength);
-			float highAlpha = alphaAt(high, strength);
-
-			for (int edge = 0; edge < 4; edge++) {
-				if (edge == 0 && north || edge == 1 && east || edge == 2 && south || edge == 3 && west) continue;
-				int a = edge;
-				int b = (edge + 1) & 3;
-				vertex(out, matrix, x[a], yLow, z[a], lowColor, lowAlpha);
-				vertex(out, matrix, x[a], yHigh, z[a], highColor, highAlpha);
-				vertex(out, matrix, x[b], yHigh, z[b], highColor, highAlpha);
-				vertex(out, matrix, x[b], yLow, z[b], lowColor, lowAlpha);
-			}
+			if (!north) wall(out, x0, z0, x1, z0, yLow, yHigh, lr, lg, lb, lowA, hr, hg, hb, highA);
+			if (!east) wall(out, x1, z0, x1, z1, yLow, yHigh, lr, lg, lb, lowA, hr, hg, hb, highA);
+			if (!south) wall(out, x1, z1, x0, z1, yLow, yHigh, lr, lg, lb, lowA, hr, hg, hb, highA);
+			if (!west) wall(out, x0, z1, x0, z0, yLow, yHigh, lr, lg, lb, lowA, hr, hg, hb, highA);
 		}
 
 		// Bottom cap only. The top stays open and fades away.
-		Color base = colorAt(0, tint);
-		float alpha = BASE_ALPHA * strength;
-		for (int i = 0; i < 4; i++) vertex(out, matrix, x[i], bottom, z[i], base, alpha);
+		byte a = alphaByte(lod.alpha[0] * strength);
+		out.vertex(x0, bottom, z0, lod.r[0], lod.g[0], lod.b[0], a);
+		out.vertex(x1, bottom, z0, lod.r[0], lod.g[0], lod.b[0], a);
+		out.vertex(x1, bottom, z1, lod.r[0], lod.g[0], lod.b[0], a);
+		out.vertex(x0, bottom, z1, lod.r[0], lod.g[0], lod.b[0], a);
 	}
 
-	private static void vertex(VertexConsumer out, Matrix4f matrix,
-			float x, float y, float z, Color color, float alpha) {
-		out.addVertex(matrix, x, y, z).setColor(color.r, color.g, color.b, alpha);
+	private static void wall(AuroraMesh out, float ax, float az, float bx, float bz, float yLow, float yHigh,
+			byte lr, byte lg, byte lb, byte la, byte hr, byte hg, byte hb, byte ha) {
+		out.vertex(ax, yLow, az, lr, lg, lb, la);
+		out.vertex(ax, yHigh, az, hr, hg, hb, ha);
+		out.vertex(bx, yHigh, bz, hr, hg, hb, ha);
+		out.vertex(bx, yLow, bz, lr, lg, lb, la);
+	}
+
+	private static byte alphaByte(float alpha) {
+		return (byte) Math.round(clamp(alpha) * 255.0f);
+	}
+
+	private static byte channel(float value) {
+		return (byte) Math.round(clamp(value) * 255.0f);
 	}
 
 	private static float alphaAt(float height, float strength) {
@@ -354,6 +370,15 @@ public final class AuroraRibbon {
 		return stops;
 	}
 
+	private static float[] dedupe(float[] sorted) {
+		float[] out = new float[sorted.length];
+		int n = 0;
+		for (float v : sorted) {
+			if (n == 0 || v - out[n - 1] > 1.0e-5f) out[n++] = v;
+		}
+		return Arrays.copyOf(out, n);
+	}
+
 	private static Color mix(Color a, Color b, float amount) {
 		return new Color(lerp(a.r, b.r, amount), lerp(a.g, b.g, amount), lerp(a.b, b.b, amount));
 	}
@@ -374,5 +399,38 @@ public final class AuroraRibbon {
 	private record Cell(int x, int z) {}
 	private record Color(float r, float g, float b) {}
 	private record Segment(int x, int z, float appear, float heightScale, float brightness,
-		int step, float phase, float localPhase, float tint) {}
+		int step, float phase, float localPhase, Style style) {}
+
+	/** Gradient of one chain, precomputed once per level of detail: colour bytes and the alpha shape per stop. */
+	private static final class Lod {
+		final float[] stops;
+		final byte[] r, g, b;
+		final float[] alpha; // multiplied by the ray's strength at build time
+
+		Lod(float[] stops, float tint) {
+			this.stops = stops;
+			int n = stops.length;
+			r = new byte[n];
+			g = new byte[n];
+			b = new byte[n];
+			alpha = new float[n];
+			for (int i = 0; i < n; i++) {
+				Color c = colorAt(stops[i], tint);
+				r[i] = channel(c.r);
+				g[i] = channel(c.g);
+				b[i] = channel(c.b);
+				alpha[i] = alphaAt(stops[i], 1.0f);
+			}
+		}
+	}
+
+	private static final class Style {
+		final Lod full, mid, far;
+
+		Style(float tint) {
+			full = new Lod(STOPS_FULL, tint);
+			mid = new Lod(STOPS_MID, tint);
+			far = new Lod(STOPS_FAR, tint);
+		}
+	}
 }
