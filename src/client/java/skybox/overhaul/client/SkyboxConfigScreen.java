@@ -49,8 +49,6 @@ public final class SkyboxConfigScreen extends Screen {
 			SkyboxConfig.cometPercent / 100.0, v -> SkyboxConfig.cometPercent = (int) Math.round(v * 100.0)));
 		addRenderableWidget(toggle(left, TOP + 3 * ROW, w, "skybox-overhaul.config.fan",
 			() -> SkyboxConfig.hideVanillaFan, v -> SkyboxConfig.hideVanillaFan = v, () -> {}));
-		addRenderableWidget(toggle(left, TOP + 4 * ROW, w, "skybox-overhaul.config.celestials",
-			() -> SkyboxConfig.customCelestials, v -> SkyboxConfig.customCelestials = v, () -> {}));
 
 		// Aurora column: the switch first, the rest is dimmed while it is off.
 		boolean on = SkyboxConfig.auroraEnabled;

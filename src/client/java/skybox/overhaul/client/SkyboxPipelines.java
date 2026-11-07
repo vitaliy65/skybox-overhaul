@@ -1,6 +1,5 @@
 package skybox.overhaul.client;
 
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
@@ -14,8 +13,6 @@ import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
 public final class SkyboxPipelines {
-	private static final BindGroupLayout SAMPLER0 = BindGroupLayout.builder().withSampler("Sampler0").build();
-
 	/** Vanilla STARS blend (additive-ish) but with per-vertex colour, so each star can have its own tint/brightness. */
 	public static final RenderPipeline NIGHT = RenderPipelines.register(
 		RenderPipeline.builder()
@@ -25,21 +22,6 @@ public final class SkyboxPipelines {
 			.withFragmentShader("core/position_color")
 			.withColorTargetState(new ColorTargetState(BlendFunction.OVERLAY))
 			.withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
-			.withPrimitiveTopology(PrimitiveTopology.QUADS)
-			.withCull(false)
-			.build());
-
-	/** Custom sun/moon: alpha-blended textured quads (glow baked into the PNG), tested against depth, never written. */
-	public static final RenderPipeline CELESTIAL = RenderPipelines.register(
-		RenderPipeline.builder()
-			.withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
-			.withLocation("pipeline/skybox_overhaul_celestial")
-			.withVertexShader("core/position_tex_color")
-			.withFragmentShader("core/position_tex_color")
-			.withBindGroupLayout(SAMPLER0)
-			.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
-			.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
-			.withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR)
 			.withPrimitiveTopology(PrimitiveTopology.QUADS)
 			.withCull(false)
 			.build());

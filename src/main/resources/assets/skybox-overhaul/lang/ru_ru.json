@@ -6,7 +6,6 @@
 	"skybox-overhaul.config.sunset": "Свечение заката: %s",
 	"skybox-overhaul.config.comets": "Шанс появления кометы: %s",
 	"skybox-overhaul.config.fan": "Скрыть веер заката: %s",
-	"skybox-overhaul.config.celestials": "Своё солнце и луна: %s",
 	"skybox-overhaul.config.reset": "Сбросить",
 	"skybox-overhaul.config.aurora": "Сияние: %s",
 	"skybox-overhaul.config.aurora-cold": "Только в холодных биомах: %s",
