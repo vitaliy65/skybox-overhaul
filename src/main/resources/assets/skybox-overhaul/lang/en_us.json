@@ -19,5 +19,6 @@
 	"skybox-overhaul.config.cloud.upper": "Upper",
 	"skybox-overhaul.config.cloud.global": "Global height offset: %s",
 	"skybox-overhaul.config.cloud.offset": "Offset: %s",
-	"skybox-overhaul.config.section.clouds": "Cloud layers"
+	"skybox-overhaul.config.section.clouds": "Cloud layers",
+	"skybox-overhaul.config.stars": "Stars: %s"
 }

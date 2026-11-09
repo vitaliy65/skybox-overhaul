@@ -39,7 +39,7 @@ public final class SkyboxConfigScreen extends Screen {
 		int columnWidth = Math.min(170, Math.max(120, (this.width - 32) / 2));
 		int left = (this.width - (2 * columnWidth + 16)) / 2;
 		int right = left + columnWidth + 16;
-		int skyRows = 4;
+		int skyRows = 5;
 		int cloudHeadingY = TOP + skyRows * ROW + 3;
 		int globalY = cloudHeadingY + 13;
 		int middleY = globalY + CLOUD_ROW_GAP;
@@ -71,6 +71,9 @@ public final class SkyboxConfigScreen extends Screen {
 			v -> SkyboxConfig.cometPercent = (int) Math.round(v * 100.0), false));
 		addRenderableWidget(toggle(left, TOP + 3 * ROW, columnWidth, "skybox-overhaul.config.fan",
 			() -> SkyboxConfig.hideVanillaFan, v -> SkyboxConfig.hideVanillaFan = v, () -> {}));
+		addRenderableWidget(new StyledSlider(left, TOP + 4 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.stars", SkyboxConfig.starCount, 1500.0, 8000.0, "", 0, false,
+			v -> SkyboxConfig.starCount = (int) Math.round(v), false));
 
 
 		// CloudLayers owns two additional layers. Global and per-layer offsets are additive.

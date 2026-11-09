@@ -36,6 +36,8 @@ public final class SkyboxConfig {
 	public static boolean auroraFlares = true;
 	/** How many of the generated aurora snakes are shown, 0..1 (0 = none, 1 = all). */
 	public static float auroraFrequency = 0.4F;
+	/** Number of stars in the night sky, 1500..8000. */
+	public static int starCount = 1500;
 
 	/** Shared vertical adjustment for all CloudLayers-managed layers, in blocks (-256..256). */
 	public static float globalCloudHeightOffset = 0.0F;
@@ -63,6 +65,7 @@ public final class SkyboxConfig {
 		auroraSpeed = 1.0F;
 		auroraFlares = true;
 		auroraFrequency = 0.4F;
+		starCount = 1500;
 		globalCloudHeightOffset = 0.0F;
 		middleCloudLayerEnabled = true;
 		middleCloudLayerOffset = 0.0F;
@@ -96,6 +99,7 @@ public final class SkyboxConfig {
 		auroraEnabled = bool(p, "auroraEnabled", auroraEnabled);
 		auroraColdOnly = bool(p, "auroraColdOnly", auroraColdOnly);
 		auroraFlares = bool(p, "auroraFlares", auroraFlares);
+		starCount = Math.round(rangedNum(p, "starCount", starCount, 1500.0F, 8000.0F));
 	}
 
 	public static void save(Path file) {
@@ -112,6 +116,7 @@ public final class SkyboxConfig {
 		p.setProperty("auroraSpeed", String.valueOf(auroraSpeed));
 		p.setProperty("auroraFlares", String.valueOf(auroraFlares));
 		p.setProperty("auroraFrequency", String.valueOf(auroraFrequency));
+		p.setProperty("starCount", String.valueOf(starCount));
 		p.setProperty("globalCloudHeightOffset", String.valueOf(globalCloudHeightOffset));
 		p.setProperty("middleCloudLayerEnabled", String.valueOf(middleCloudLayerEnabled));
 		p.setProperty("middleCloudLayerOffset", String.valueOf(middleCloudLayerOffset));

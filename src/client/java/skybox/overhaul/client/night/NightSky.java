@@ -33,11 +33,10 @@ import skybox.overhaul.client.render.SkyboxPipelines;
 import skybox.overhaul.client.sky.SkyPalette;
 
 /**
- * Replacement for vanilla renderStars: same 3000 star positions (same RNG stream), square pixel stars,
+ * Replacement for vanilla renderStars: star positions from vanilla's RNG stream (the first N stars are the same for any N), square pixel stars,
  * but each star has its own size, colour and brightness, twinkle runs per bucket of stars, plus comets that fly across the sky and fade out.
  */
 public final class NightSky implements AutoCloseable {
-	private static final int STARS = 3000;
 	private static final int BUCKETS = 16;      // twinkle groups: 16 distinct rhythms, stars assigned at random
 	private static final int COMET_TAIL = 14;
 	private static final long COMET_SLOT = 100L;   // ticks: one spawn roll per slot
@@ -48,7 +47,9 @@ public final class NightSky implements AutoCloseable {
 
 	private record Star(int bucket, float[] v, int color) {}
 
-	private final GpuBuffer starBuffer;
+	private static NightSky instance;
+	private GpuBuffer starBuffer;
+	private int builtStars;
 	private final GpuBuffer cometBuffer;
 	private final int[] bucketStars = new int[BUCKETS];
 	private final float[] freq = new float[BUCKETS];
@@ -65,15 +66,34 @@ public final class NightSky implements AutoCloseable {
 			phase[b] = r.nextFloat() * Mth.TWO_PI;
 			depth[b] = 0.2F + 0.4F * r.nextFloat();                // twinkle strength
 		}
-		starBuffer = buildStars();
+		starBuffer = buildStars(SkyboxConfig.starCount);
+		builtStars = SkyboxConfig.starCount;
 		cometBuffer = buildComet();
+		instance = this;
 	}
 
-	private GpuBuffer buildStars() {
+	/** Called outside a render pass so a changed star count can safely rebuild its GPU buffer. */
+	public static void prepare() {
+		NightSky current = instance;
+		if (current != null && current.builtStars != SkyboxConfig.starCount) {
+			current.rebuildStars();
+		}
+	}
+
+	private void rebuildStars() {
+		GpuBuffer oldStars = starBuffer;
+		java.util.Arrays.fill(bucketStars, 0);
+		starBuffer = buildStars(SkyboxConfig.starCount);
+		builtStars = SkyboxConfig.starCount;
+		oldStars.close();
+	}
+
+	private GpuBuffer buildStars(int count) {
 		RandomSource pos = RandomSource.createThreadLocalInstance(10842L); // vanilla seed + draw order = vanilla constellations
 		Random look = new Random(4242);
 		List<Star> stars = new ArrayList<>();
-		for (int i = 0; i < STARS; i++) {
+		// Generate exactly `count` accepted stars; the deterministic RNG keeps lower counts as a prefix.
+		for (int i = 0; stars.size() < count && i < count * 20; i++) {
 			float x = pos.nextFloat() * 2.0F - 1.0F;
 			float y = pos.nextFloat() * 2.0F - 1.0F;
 			float z = pos.nextFloat() * 2.0F - 1.0F;
@@ -252,6 +272,9 @@ public final class NightSky implements AutoCloseable {
 
 	@Override
 	public void close() {
+		if (instance == this) {
+			instance = null;
+		}
 		starBuffer.close();
 		cometBuffer.close();
 	}

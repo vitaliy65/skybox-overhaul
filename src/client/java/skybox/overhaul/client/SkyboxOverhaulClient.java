@@ -2,12 +2,14 @@ package skybox.overhaul.client;
 
 import java.nio.file.Path;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelExtractionEvents;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.fabricmc.fabric.api.resource.v1.pack.PackActivationType;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import skybox.overhaul.client.aurora.AuroraRenderer;
+import skybox.overhaul.client.night.NightSky;
 import skybox.overhaul.client.config.SkyboxConfig;
 import skybox.overhaul.client.render.SkyboxPipelines;
 
@@ -19,6 +21,7 @@ public class SkyboxOverhaulClient implements ClientModInitializer {
 		SkyboxConfig.load(CONFIG);
 		SkyboxPipelines.init();
 		AuroraRenderer.init();
+		LevelExtractionEvents.END_EXTRACTION.register(context -> NightSky.prepare());
 
 		// Custom sun and moon textures live in a built-in resource pack (resourcepacks/celestials in the jar):
 		// on by default, switch off in Options > Resource Packs to get vanilla's sun and moon back.
