@@ -71,6 +71,9 @@ public final class SkyboxConfigScreen extends Screen {
 			v -> SkyboxConfig.cometPercent = (int) Math.round(v * 100.0), false));
 		addRenderableWidget(toggle(left, TOP + 3 * ROW, columnWidth, "skybox-overhaul.config.fan",
 			() -> SkyboxConfig.hideVanillaFan, v -> SkyboxConfig.hideVanillaFan = v, () -> {}));
+		addRenderableWidget(new StyledSlider(left, TOP + 4 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.stars", SkyboxConfig.starCount, 1500.0, 8000.0, "", 0, false,
+			v -> SkyboxConfig.starCount = (int) Math.round(v), false));
 
 		// CloudLayers owns two additional layers. Global and per-layer offsets are additive.
 		addRenderableWidget(new StringWidget(left + 4, cloudHeadingY, columnWidth - 8, 10,
