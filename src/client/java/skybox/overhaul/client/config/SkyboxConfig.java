@@ -37,6 +37,17 @@ public final class SkyboxConfig {
 	/** How many of the generated aurora snakes are shown, 0..1 (0 = none, 1 = all). */
 	public static float auroraFrequency = 0.4F;
 
+	/** Shared vertical adjustment for all CloudLayers-managed layers, in blocks (-256..256). */
+	public static float globalCloudHeightOffset = 0.0F;
+	/** Whether the additional middle cloud layer is rendered. */
+	public static boolean middleCloudLayerEnabled = true;
+	/** Per-layer vertical adjustment, in blocks (-256..256). */
+	public static float middleCloudLayerOffset = 0.0F;
+	/** Whether the additional upper cloud layer is rendered. */
+	public static boolean upperCloudLayerEnabled = true;
+	/** Per-layer vertical adjustment, in blocks (-256..256). */
+	public static float upperCloudLayerOffset = 0.0F;
+
 	private SkyboxConfig() {}
 
 	public static void reset() {
@@ -52,6 +63,11 @@ public final class SkyboxConfig {
 		auroraSpeed = 1.0F;
 		auroraFlares = true;
 		auroraFrequency = 0.4F;
+		globalCloudHeightOffset = 0.0F;
+		middleCloudLayerEnabled = true;
+		middleCloudLayerOffset = 0.0F;
+		upperCloudLayerEnabled = true;
+		upperCloudLayerOffset = 0.0F;
 	}
 
 	/** Missing file, bad numbers or out-of-range values fall back to the defaults / get clamped. */
@@ -71,6 +87,11 @@ public final class SkyboxConfig {
 		auroraHeight = rangedNum(p, "auroraHeight", auroraHeight, 40.0F, 180.0F);
 		auroraBrightness = rangedNum(p, "auroraBrightness", auroraBrightness, 0.0F, 1.0F);
 		auroraSpeed = rangedNum(p, "auroraSpeed", auroraSpeed, 0.25F, 2.0F);
+		globalCloudHeightOffset = rangedNum(p, "globalCloudHeightOffset", globalCloudHeightOffset, -256.0F, 256.0F);
+		middleCloudLayerEnabled = bool(p, "middleCloudLayerEnabled", middleCloudLayerEnabled);
+		middleCloudLayerOffset = rangedNum(p, "middleCloudLayerOffset", middleCloudLayerOffset, -256.0F, 256.0F);
+		upperCloudLayerEnabled = bool(p, "upperCloudLayerEnabled", upperCloudLayerEnabled);
+		upperCloudLayerOffset = rangedNum(p, "upperCloudLayerOffset", upperCloudLayerOffset, -256.0F, 256.0F);
 		hideVanillaFan = bool(p, "hideVanillaFan", hideVanillaFan);
 		auroraEnabled = bool(p, "auroraEnabled", auroraEnabled);
 		auroraColdOnly = bool(p, "auroraColdOnly", auroraColdOnly);
@@ -91,6 +112,11 @@ public final class SkyboxConfig {
 		p.setProperty("auroraSpeed", String.valueOf(auroraSpeed));
 		p.setProperty("auroraFlares", String.valueOf(auroraFlares));
 		p.setProperty("auroraFrequency", String.valueOf(auroraFrequency));
+		p.setProperty("globalCloudHeightOffset", String.valueOf(globalCloudHeightOffset));
+		p.setProperty("middleCloudLayerEnabled", String.valueOf(middleCloudLayerEnabled));
+		p.setProperty("middleCloudLayerOffset", String.valueOf(middleCloudLayerOffset));
+		p.setProperty("upperCloudLayerEnabled", String.valueOf(upperCloudLayerEnabled));
+		p.setProperty("upperCloudLayerOffset", String.valueOf(upperCloudLayerOffset));
 		try (Writer w = Files.newBufferedWriter(file)) {
 			p.store(w, "Skybox Overhaul");
 		} catch (IOException e) {

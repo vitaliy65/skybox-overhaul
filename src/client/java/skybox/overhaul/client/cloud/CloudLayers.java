@@ -7,6 +7,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.world.phys.Vec3;
 import skybox.overhaul.client.render.SkyboxState;
+import skybox.overhaul.client.config.SkyboxConfig;
 
 /**
  * Two extra vanilla CloudRenderer instances with independent masks and subtle weather response.
@@ -65,21 +66,19 @@ public final class CloudLayers {
         // Integrate wind over elapsed ticks instead of multiplying total world time by current
         // rain strength. That prevents a visible cloud-pattern jump when rain starts or stops.
         updateWeatherDrift(gameTime, rain);
-
-        MIDDLE.render(
+        if (SkyboxConfig.middleCloudLayerEnabled) MIDDLE.render(
                 applyOpacity(rainTintedColor, MIDDLE_OPACITY + 0.16F * rain),
                 cloudStatus,
-                bottomY + MIDDLE_HEIGHT_OFFSET,
+                bottomY + MIDDLE_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.middleCloudLayerOffset,
                 range,
                 cameraPosition.add(0.0D, 0.0D, middleWindZ),
                 gameTime + MIDDLE_PHASE_OFFSET,
                 partialTicks
         );
-
-        UPPER.render(
+        if (SkyboxConfig.upperCloudLayerEnabled) UPPER.render(
                 applyOpacity(rainTintedColor, UPPER_OPACITY + 0.07F * rain),
                 cloudStatus,
-                bottomY + UPPER_HEIGHT_OFFSET,
+                bottomY + UPPER_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.upperCloudLayerOffset,
                 range,
                 cameraPosition.add(upperWindX, 0.0D, upperWindZ),
                 gameTime + UPPER_PHASE_OFFSET,
