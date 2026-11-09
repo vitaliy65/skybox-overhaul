@@ -4,23 +4,28 @@ import java.util.Locale;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
+
 /**
- * Mod Menu config screen on vanilla widgets only (no Cloth Config). Two columns: sky on the left, aurora on the
- * right. Changes apply live, saved on close. The aurora options grey out while the aurora is switched off.
+ * ModMenu configuration screen. Custom controls and panel backgrounds keep the UI visually grouped without
+ * introducing a separate widget library. Changes apply live and are persisted when the screen is closed.
  */
 public final class SkyboxConfigScreen extends Screen {
-	private static final int COLUMN_WIDTH = 170;
-	private static final int ROW = 24;
-	private static final int TOP = 40;
+	private static final int TOP = 38;
+	private static final int ROW = 19;
+	private static final int CONTROL_HEIGHT = 18;
 	private static final int AURORA_ROWS = 8;
+	private static final int CLOUD_ROW_GAP = 21;
 
 	private final Screen parent;
 
@@ -31,72 +36,115 @@ public final class SkyboxConfigScreen extends Screen {
 
 	@Override
 	protected void init() {
-		int w = COLUMN_WIDTH;
-		int left = this.width / 2 - w - 4;
-		int right = this.width / 2 + 4;
-		addRenderableWidget(new StringWidget(left, 10, 2 * w + 8, 9, this.title, this.font));
-		addRenderableWidget(new StringWidget(left, 26, w, 9,
+		int columnWidth = Math.min(170, Math.max(120, (this.width - 32) / 2));
+		int left = (this.width - (2 * columnWidth + 16)) / 2;
+		int right = left + columnWidth + 16;
+		int skyRows = 5;
+		int cloudHeadingY = TOP + skyRows * ROW + 3;
+		int globalY = cloudHeadingY + 13;
+		int middleY = globalY + CLOUD_ROW_GAP;
+		int upperY = middleY + CLOUD_ROW_GAP;
+		int skyBottom = upperY + CONTROL_HEIGHT + 2;
+		int auroraBottom = TOP + AURORA_ROWS * ROW;
+		int contentBottom = Math.max(skyBottom, auroraBottom);
+		int footerY = Math.max(this.height - 24, contentBottom + 5);
+
+		// Background is a non-interactive widget so it is rendered behind all controls.
+		addRenderableWidget(new PanelBackground(this.width, footerY + 22, left, right, columnWidth,
+			cloudHeadingY, globalY, middleY, upperY, footerY));
+
+		addRenderableWidget(new StringWidget(8, 9, this.width - 16, 12, this.title, this.font));
+		addRenderableWidget(new StringWidget(left, 25, columnWidth, 10,
 			Component.translatable("skybox-overhaul.config.section.sky"), this.font));
-		addRenderableWidget(new StringWidget(right, 26, w, 9,
+		addRenderableWidget(new StringWidget(right, 25, columnWidth, 10,
 			Component.translatable("skybox-overhaul.config.section.aurora"), this.font));
 
-		// Sky column.
-		addRenderableWidget(new Percent(left, TOP, w, "skybox-overhaul.config.palette", SkyboxConfig.paletteStrength,
-			v -> SkyboxConfig.paletteStrength = (float) v));
-		addRenderableWidget(new Percent(left, TOP + ROW, w, "skybox-overhaul.config.sunset", SkyboxConfig.sunsetIntensity,
-			v -> SkyboxConfig.sunsetIntensity = (float) v));
-		addRenderableWidget(new Percent(left, TOP + 2 * ROW, w, "skybox-overhaul.config.comets",
-			SkyboxConfig.cometPercent / 100.0, v -> SkyboxConfig.cometPercent = (int) Math.round(v * 100.0)));
-		addRenderableWidget(toggle(left, TOP + 3 * ROW, w, "skybox-overhaul.config.fan",
+		// Sky settings retain the controls specific to this project version.
+		addRenderableWidget(new StyledSlider(left, TOP, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.palette", SkyboxConfig.paletteStrength, 0.0, 1.0, "", 0, false,
+			v -> SkyboxConfig.paletteStrength = (float) v, false));
+		addRenderableWidget(new StyledSlider(left, TOP + ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.sunset", SkyboxConfig.sunsetIntensity, 0.0, 1.0, "", 0, false,
+			v -> SkyboxConfig.sunsetIntensity = (float) v, false));
+		addRenderableWidget(new StyledSlider(left, TOP + 2 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.comets", SkyboxConfig.cometPercent / 100.0, 0.0, 1.0, "%", 0, true,
+			v -> SkyboxConfig.cometPercent = (int) Math.round(v * 100.0), false));
+		addRenderableWidget(toggle(left, TOP + 3 * ROW, columnWidth, "skybox-overhaul.config.fan",
 			() -> SkyboxConfig.hideVanillaFan, v -> SkyboxConfig.hideVanillaFan = v, () -> {}));
-		addRenderableWidget(toggle(left, TOP + 4 * ROW, w, "skybox-overhaul.config.celestials",
-			() -> SkyboxConfig.customCelestials, v -> SkyboxConfig.customCelestials = v, () -> {}));
 
-		// Aurora column: the switch first, the rest is dimmed while it is off.
-		boolean on = SkyboxConfig.auroraEnabled;
-		addRenderableWidget(toggle(right, TOP, w, "skybox-overhaul.config.aurora",
+		// CloudLayers owns two additional layers. Global and per-layer offsets are additive.
+		addRenderableWidget(new StringWidget(left + 4, cloudHeadingY, columnWidth - 8, 10,
+			Component.translatable("skybox-overhaul.config.section.clouds"), this.font));
+		addRenderableWidget(new StyledSlider(left + 3, globalY, columnWidth - 6, CONTROL_HEIGHT,
+			"skybox-overhaul.config.cloud.global", SkyboxConfig.globalCloudHeightOffset,
+			-256.0, 256.0, " blocks", 0, false,
+			v -> SkyboxConfig.globalCloudHeightOffset = (float) Math.round(v), false));
+		int switchWidth = Math.min(88, columnWidth / 2 + 14);
+		int localSliderWidth = columnWidth - switchWidth - 10;
+		addRenderableWidget(toggle(left + 3, middleY, switchWidth, "skybox-overhaul.config.cloud.middle",
+			() -> SkyboxConfig.middleCloudLayerEnabled, v -> SkyboxConfig.middleCloudLayerEnabled = v,
+			this::rebuildWidgets));
+		StyledSlider middleOffset = new StyledSlider(left + switchWidth + 7, middleY, localSliderWidth,
+			CONTROL_HEIGHT, "skybox-overhaul.config.cloud.offset", SkyboxConfig.middleCloudLayerOffset,
+			-256.0, 256.0, " blocks", 0, false,
+			v -> SkyboxConfig.middleCloudLayerOffset = (float) Math.round(v), true);
+		middleOffset.active = SkyboxConfig.middleCloudLayerEnabled;
+		addRenderableWidget(middleOffset);
+		addRenderableWidget(toggle(left + 3, upperY, switchWidth, "skybox-overhaul.config.cloud.upper",
+			() -> SkyboxConfig.upperCloudLayerEnabled, v -> SkyboxConfig.upperCloudLayerEnabled = v,
+			this::rebuildWidgets));
+		StyledSlider upperOffset = new StyledSlider(left + switchWidth + 7, upperY, localSliderWidth,
+			CONTROL_HEIGHT, "skybox-overhaul.config.cloud.offset", SkyboxConfig.upperCloudLayerOffset,
+			-256.0, 256.0, " blocks", 0, false,
+			v -> SkyboxConfig.upperCloudLayerOffset = (float) Math.round(v), true);
+		upperOffset.active = SkyboxConfig.upperCloudLayerEnabled;
+		addRenderableWidget(upperOffset);
+
+		// Aurora column: subordinate controls are visually disabled while the master switch is off.
+		boolean auroraOn = SkyboxConfig.auroraEnabled;
+		addRenderableWidget(toggle(right, TOP, columnWidth, "skybox-overhaul.config.aurora",
 			() -> SkyboxConfig.auroraEnabled, v -> SkyboxConfig.auroraEnabled = v, this::rebuildWidgets));
-		addAurora(toggle(right, TOP + ROW, w, "skybox-overhaul.config.aurora-cold",
-			() -> SkyboxConfig.auroraColdOnly, v -> SkyboxConfig.auroraColdOnly = v, () -> {}), on);
-		addAurora(new Percent(right, TOP + 2 * ROW, w, "skybox-overhaul.config.aurora-brightness",
-			SkyboxConfig.auroraBrightness, v -> SkyboxConfig.auroraBrightness = (float) v), on);
-		addAurora(new NumberSlider(right, TOP + 3 * ROW, w, "skybox-overhaul.config.aurora-speed",
-			SkyboxConfig.auroraSpeed, 0.25, 2.0, "x", 2, v -> SkyboxConfig.auroraSpeed = (float) v), on);
-		addAurora(toggle(right, TOP + 4 * ROW, w, "skybox-overhaul.config.aurora-flares",
-			() -> SkyboxConfig.auroraFlares, v -> SkyboxConfig.auroraFlares = v, () -> {}), on);
-		addAurora(new NumberSlider(right, TOP + 5 * ROW, w, "skybox-overhaul.config.aurora-grid",
-			SkyboxConfig.auroraGridCellSize, 8.0, 32.0, " blocks", 0, v -> SkyboxConfig.auroraGridCellSize = (float) v), on);
-		addAurora(new NumberSlider(right, TOP + 6 * ROW, w, "skybox-overhaul.config.aurora-height",
-			SkyboxConfig.auroraHeight, 40.0, 180.0, " blocks", 0, v -> SkyboxConfig.auroraHeight = (float) v), on);
-		addAurora(new Percent(right, TOP + 7 * ROW, w, "skybox-overhaul.config.aurora-frequency",
-			SkyboxConfig.auroraFrequency, v -> SkyboxConfig.auroraFrequency = (float) v), on);
+		addAurora(toggle(right, TOP + ROW, columnWidth, "skybox-overhaul.config.aurora-cold",
+			() -> SkyboxConfig.auroraColdOnly, v -> SkyboxConfig.auroraColdOnly = v, () -> {}), auroraOn);
+		addAurora(new StyledSlider(right, TOP + 2 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.aurora-brightness", SkyboxConfig.auroraBrightness, 0.0, 1.0,
+			"%", 0, true, v -> SkyboxConfig.auroraBrightness = (float) v, false), auroraOn);
+		addAurora(new StyledSlider(right, TOP + 3 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.aurora-speed", SkyboxConfig.auroraSpeed, 0.25, 2.0,
+			"x", 2, false, v -> SkyboxConfig.auroraSpeed = (float) v, false), auroraOn);
+		addAurora(toggle(right, TOP + 4 * ROW, columnWidth, "skybox-overhaul.config.aurora-flares",
+			() -> SkyboxConfig.auroraFlares, v -> SkyboxConfig.auroraFlares = v, () -> {}), auroraOn);
+		addAurora(new StyledSlider(right, TOP + 5 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.aurora-grid", SkyboxConfig.auroraGridCellSize, 8.0, 32.0,
+			" blocks", 0, false, v -> SkyboxConfig.auroraGridCellSize = (float) v, false), auroraOn);
+		addAurora(new StyledSlider(right, TOP + 6 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.aurora-height", SkyboxConfig.auroraHeight, 40.0, 180.0,
+			" blocks", 0, false, v -> SkyboxConfig.auroraHeight = (float) v, false), auroraOn);
+		addAurora(new StyledSlider(right, TOP + 7 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.aurora-frequency", SkyboxConfig.auroraFrequency, 0.0, 1.0,
+			"%", 0, true, v -> SkyboxConfig.auroraFrequency = (float) v, false), auroraOn);
 
-		int bottom = Math.max(this.height - 28, TOP + AURORA_ROWS * ROW + 4);
-		addRenderableWidget(Button.builder(Component.translatable("skybox-overhaul.config.reset"), b -> {
-			SkyboxConfig.reset();
-			rebuildWidgets();
-		}).bounds(this.width / 2 - 102, bottom, 100, 20).build());
-		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose())
-			.bounds(this.width / 2 + 2, bottom, 100, 20).build());
+		int buttonWidth = Math.min(100, columnWidth - 4);
+		int buttonGap = 6;
+		int buttonTotal = buttonWidth * 2 + buttonGap;
+		int buttonLeft = (this.width - buttonTotal) / 2;
+		addRenderableWidget(new ActionControl(buttonLeft, footerY, buttonWidth, 19,
+			Component.translatable("skybox-overhaul.config.reset"), () -> {
+				SkyboxConfig.reset();
+				rebuildWidgets();
+			}, false));
+		addRenderableWidget(new ActionControl(buttonLeft + buttonWidth + buttonGap, footerY,
+			buttonWidth, 19, CommonComponents.GUI_DONE, this::onClose, true));
 	}
 
-	private <T extends AbstractWidget> void addAurora(T widget, boolean active) {
-		widget.active = active;
+	private <T extends AbstractWidget> void addAurora(T widget, boolean enabled) {
+		widget.active = enabled;
 		addRenderableWidget(widget);
 	}
 
-	/** ON/OFF button; the label is the lang key with the state as %s. {@code after} runs once the value changed. */
-	private static Button toggle(int x, int y, int w, String key, BooleanSupplier get, Consumer<Boolean> set,
-			Runnable after) {
-		return Button.builder(toggleLabel(key, get.getAsBoolean()), b -> {
-			set.accept(!get.getAsBoolean());
-			b.setMessage(toggleLabel(key, get.getAsBoolean()));
-			after.run();
-		}).bounds(x, y, w, 20).build();
-	}
-
-	private static Component toggleLabel(String key, boolean on) {
-		return Component.translatable(key, Component.translatable(on ? "options.on" : "options.off"));
+	private static StyledToggle toggle(int x, int y, int width, String key, BooleanSupplier get,
+			Consumer<Boolean> set, Runnable after) {
+		return new StyledToggle(x, y, width, CONTROL_HEIGHT, key, get, set, after);
 	}
 
 	@Override
@@ -105,24 +153,151 @@ public final class SkyboxConfigScreen extends Screen {
 		this.minecraft.setScreen(this.parent);
 	}
 
-	/** Slider whose displayed/stored value is mapped to a numeric range, shown with a fixed number of decimals. */
-	private static final class NumberSlider extends AbstractSliderButton {
+	private static final class PanelBackground extends AbstractWidget {
+		private final int left;
+		private final int right;
+		private final int columnWidth;
+		private final int cloudHeadingY;
+		private final int globalY;
+		private final int middleY;
+		private final int upperY;
+		private final int footerY;
+
+		PanelBackground(int screenWidth, int screenHeight, int left, int right, int columnWidth,
+				int cloudHeadingY, int globalY, int middleY, int upperY, int footerY) {
+			super(0, 0, screenWidth, screenHeight, Component.empty());
+			this.left = left;
+			this.right = right;
+			this.columnWidth = columnWidth;
+			this.cloudHeadingY = cloudHeadingY;
+			this.globalY = globalY;
+			this.middleY = middleY;
+			this.upperY = upperY;
+			this.footerY = footerY;
+			this.active = false;
+		}
+
+		@Override
+		public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+			int panelBottom = footerY - 7;
+			drawPanel(graphics, left - 5, 21, left + columnWidth + 5, panelBottom);
+			drawPanel(graphics, right - 5, 21, right + columnWidth + 5, panelBottom);
+			drawPanel(graphics, left + 1, cloudHeadingY - 3, left + columnWidth - 1, upperY + CONTROL_HEIGHT + 2);
+			drawPanel(graphics, left + 3, globalY - 1, left + columnWidth - 3, globalY + CONTROL_HEIGHT + 1);
+		}
+
+		private static void drawPanel(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2) {
+			graphics.fill(x1, y1, x2, y2, 0xC9121B2B);
+			graphics.outline(x1, y1, x2 - x1, y2 - y1, 0xFF34465F);
+		}
+
+		@Override
+		public void onClick(MouseButtonEvent event, boolean doubleClick) {}
+
+		@Override
+		protected void updateWidgetNarration(NarrationElementOutput narration) {}
+	}
+
+	private static final class StyledToggle extends AbstractWidget {
+		private final String key;
+		private final BooleanSupplier get;
+		private final Consumer<Boolean> set;
+		private final Runnable after;
+
+		StyledToggle(int x, int y, int width, int height, String key, BooleanSupplier get,
+				Consumer<Boolean> set, Runnable after) {
+			super(x, y, width, height, Component.translatable(key));
+			this.key = key;
+			this.get = get;
+			this.set = set;
+			this.after = after;
+		}
+
+		@Override
+		public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+			int background = !active ? 0xFF202936 : isHovered() ? 0xFF30465D : 0xFF243449;
+			int foreground = active ? 0xFFE5EDF7 : 0xFF7E8998;
+			graphics.fill(getX(), getY(), getX() + width, getY() + height, background);
+			graphics.outline(getX(), getY(), width, height,
+				active ? 0xFF465D78 : 0xFF303B49);
+			var font = Minecraft.getInstance().font;
+			graphics.text(font, Component.translatable(key), getX() + 5, getY() + 5, foreground);
+			int chipX = getX() + width - 31;
+			int chipY = getY() + 3;
+			int chipColor = !active ? 0xFF303B49 : get.getAsBoolean() ? 0xFF225E50 : 0xFF3B4757;
+			graphics.fill(chipX, chipY, chipX + 27, chipY + 12, chipColor);
+			Component state = Component.translatable(get.getAsBoolean() ? "options.on" : "options.off");
+			int stateX = chipX + (27 - font.width(state)) / 2;
+			graphics.text(font, state, stateX, chipY + 2, foreground);
+		}
+
+		@Override
+		public void onClick(MouseButtonEvent event, boolean doubleClick) {
+			if (!active) return;
+			set.accept(!get.getAsBoolean());
+			after.run();
+		}
+
+		@Override
+		protected void updateWidgetNarration(NarrationElementOutput narration) {
+			defaultButtonNarrationText(narration);
+		}
+	}
+
+	private static final class ActionControl extends AbstractWidget {
+		private final Runnable action;
+		private final boolean primary;
+
+		ActionControl(int x, int y, int width, int height, Component label, Runnable action, boolean primary) {
+			super(x, y, width, height, label);
+			this.action = action;
+			this.primary = primary;
+		}
+
+		@Override
+		public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+			int background = primary ? (isHovered() ? 0xFF397F9D : 0xFF28647F)
+				: (isHovered() ? 0xFF35475D : 0xFF26364A);
+			graphics.fill(getX(), getY(), getX() + width, getY() + height, background);
+			graphics.outline(getX(), getY(), width, height, 0xFF58718B);
+			var font = Minecraft.getInstance().font;
+			int textX = getX() + (width - font.width(getMessage())) / 2;
+			graphics.text(font, getMessage(), textX, getY() + 5, 0xFFF2F6FA);
+		}
+
+		@Override
+		public void onClick(MouseButtonEvent event, boolean doubleClick) {
+			if (active) action.run();
+		}
+
+		@Override
+		protected void updateWidgetNarration(NarrationElementOutput narration) {
+			defaultButtonNarrationText(narration);
+		}
+	}
+
+	private static final class StyledSlider extends AbstractSliderButton {
 		private final String key;
 		private final double min;
 		private final double max;
 		private final String suffix;
 		private final int decimals;
+		private final boolean percent;
 		private final DoubleConsumer apply;
+		private final boolean compact;
 
-		NumberSlider(int x, int y, int w, String key, double value, double min, double max,
-				String suffix, int decimals, DoubleConsumer apply) {
-			super(x, y, w, 20, Component.empty(), (value - min) / (max - min));
+		StyledSlider(int x, int y, int width, int height, String key, double initialValue,
+				double min, double max, String suffix, int decimals, boolean percent,
+				DoubleConsumer apply, boolean compact) {
+			super(x, y, width, height, Component.empty(), (initialValue - min) / (max - min));
 			this.key = key;
 			this.min = min;
 			this.max = max;
 			this.suffix = suffix;
 			this.decimals = decimals;
+			this.percent = percent;
 			this.apply = apply;
+			this.compact = compact;
 			updateMessage();
 		}
 
@@ -132,36 +307,38 @@ public final class SkyboxConfigScreen extends Screen {
 
 		@Override
 		protected void updateMessage() {
-			String formatted = String.format(Locale.ROOT, "%." + decimals + "f", actualValue());
-			setMessage(Component.translatable(key, formatted + suffix));
+			String formatted = percent ? Math.round(value * 100.0) + "%"
+				: String.format(Locale.ROOT, "%." + decimals + "f", actualValue()) + suffix;
+			setMessage(Component.translatable(key, formatted));
 		}
 
 		@Override
 		protected void applyValue() {
 			apply.accept(actualValue());
 		}
-	}
-
-	/** 0..100 % slider; label is the lang key with the percentage as %s. */
-	private static final class Percent extends AbstractSliderButton {
-		private final String key;
-		private final DoubleConsumer apply;
-
-		Percent(int x, int y, int w, String key, double value, DoubleConsumer apply) {
-			super(x, y, w, 20, Component.empty(), value);
-			this.key = key;
-			this.apply = apply;
-			updateMessage();
-		}
 
 		@Override
-		protected void updateMessage() {
-			setMessage(Component.translatable(this.key, Math.round(this.value * 100.0) + "%"));
-		}
+		public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+			int background = !active ? 0xFF202936 : isHovered() ? 0xFF30465D : 0xFF243449;
+			int foreground = active ? 0xFFE5EDF7 : 0xFF7E8998;
+			graphics.fill(getX(), getY(), getX() + width, getY() + height, background);
+			graphics.outline(getX(), getY(), width, height,
+				active ? 0xFF465D78 : 0xFF303B49);
+			Component visibleText = compact
+				? Component.literal("Δ " + String.format(Locale.ROOT, "%+.0f", actualValue()) + "b")
+				: getMessage();
+			var font = Minecraft.getInstance().font;
+			int textX = getX() + (width - font.width(visibleText)) / 2;
+			graphics.text(font, visibleText, textX, getY() + 1, foreground);
 
-		@Override
-		protected void applyValue() {
-			this.apply.accept(this.value);
+			int trackLeft = getX() + 6;
+			int trackRight = getX() + width - 6;
+			int trackY = getY() + height - 5;
+			graphics.fill(trackLeft, trackY, trackRight, trackY + 2, 0xFF172230);
+			int thumbX = trackLeft + (int) Math.round((trackRight - trackLeft) * value);
+			if (thumbX > trackLeft) graphics.fill(trackLeft, trackY, thumbX, trackY + 2, active ? 0xFF54B8C8 : 0xFF596A7D);
+			graphics.fill(thumbX - 2, trackY - 2, thumbX + 3, trackY + 4,
+				active ? 0xFFE7F4F6 : 0xFF758397);
 		}
 	}
 }

@@ -18,8 +18,6 @@ public final class SkyboxConfig {
 	public static float sunsetIntensity = 1.0F;
 	/** Hide vanilla's blocky sunrise/sunset fan (our layers replace it). */
 	public static boolean hideVanillaFan = true;
-	/** true = our sun and moon textures (Celestials); false = vanilla's. */
-	public static boolean customCelestials = true;
 	/** Chance (0..100) that a given in-game day has a comet. */
 	public static int cometPercent = 30;
 	/** Horizontal size of one aurora grid cell in blocks, 8..32. */
@@ -39,13 +37,23 @@ public final class SkyboxConfig {
 	/** How many of the generated aurora snakes are shown, 0..1 (0 = none, 1 = all). */
 	public static float auroraFrequency = 0.4F;
 
+	/** Shared vertical adjustment for all CloudLayers-managed layers, in blocks (-256..256). */
+	public static float globalCloudHeightOffset = 0.0F;
+	/** Whether the additional middle cloud layer is rendered. */
+	public static boolean middleCloudLayerEnabled = true;
+	/** Per-layer vertical adjustment, in blocks (-256..256). */
+	public static float middleCloudLayerOffset = 0.0F;
+	/** Whether the additional upper cloud layer is rendered. */
+	public static boolean upperCloudLayerEnabled = true;
+	/** Per-layer vertical adjustment, in blocks (-256..256). */
+	public static float upperCloudLayerOffset = 0.0F;
+
 	private SkyboxConfig() {}
 
 	public static void reset() {
 		paletteStrength = 0.8F;
 		sunsetIntensity = 1.0F;
 		hideVanillaFan = true;
-		customCelestials = true;
 		cometPercent = 30;
 		auroraGridCellSize = 16.0F;
 		auroraHeight = 90.0F;
@@ -55,6 +63,11 @@ public final class SkyboxConfig {
 		auroraSpeed = 1.0F;
 		auroraFlares = true;
 		auroraFrequency = 0.4F;
+		globalCloudHeightOffset = 0.0F;
+		middleCloudLayerEnabled = true;
+		middleCloudLayerOffset = 0.0F;
+		upperCloudLayerEnabled = true;
+		upperCloudLayerOffset = 0.0F;
 	}
 
 	/** Missing file, bad numbers or out-of-range values fall back to the defaults / get clamped. */
@@ -74,8 +87,12 @@ public final class SkyboxConfig {
 		auroraHeight = rangedNum(p, "auroraHeight", auroraHeight, 40.0F, 180.0F);
 		auroraBrightness = rangedNum(p, "auroraBrightness", auroraBrightness, 0.0F, 1.0F);
 		auroraSpeed = rangedNum(p, "auroraSpeed", auroraSpeed, 0.25F, 2.0F);
+		globalCloudHeightOffset = rangedNum(p, "globalCloudHeightOffset", globalCloudHeightOffset, -256.0F, 256.0F);
+		middleCloudLayerEnabled = bool(p, "middleCloudLayerEnabled", middleCloudLayerEnabled);
+		middleCloudLayerOffset = rangedNum(p, "middleCloudLayerOffset", middleCloudLayerOffset, -256.0F, 256.0F);
+		upperCloudLayerEnabled = bool(p, "upperCloudLayerEnabled", upperCloudLayerEnabled);
+		upperCloudLayerOffset = rangedNum(p, "upperCloudLayerOffset", upperCloudLayerOffset, -256.0F, 256.0F);
 		hideVanillaFan = bool(p, "hideVanillaFan", hideVanillaFan);
-		customCelestials = bool(p, "customCelestials", customCelestials);
 		auroraEnabled = bool(p, "auroraEnabled", auroraEnabled);
 		auroraColdOnly = bool(p, "auroraColdOnly", auroraColdOnly);
 		auroraFlares = bool(p, "auroraFlares", auroraFlares);
@@ -86,7 +103,6 @@ public final class SkyboxConfig {
 		p.setProperty("paletteStrength", String.valueOf(paletteStrength));
 		p.setProperty("sunsetIntensity", String.valueOf(sunsetIntensity));
 		p.setProperty("hideVanillaFan", String.valueOf(hideVanillaFan));
-		p.setProperty("customCelestials", String.valueOf(customCelestials));
 		p.setProperty("cometPercent", String.valueOf(cometPercent));
 		p.setProperty("auroraGridCellSize", String.valueOf(auroraGridCellSize));
 		p.setProperty("auroraHeight", String.valueOf(auroraHeight));
@@ -96,6 +112,11 @@ public final class SkyboxConfig {
 		p.setProperty("auroraSpeed", String.valueOf(auroraSpeed));
 		p.setProperty("auroraFlares", String.valueOf(auroraFlares));
 		p.setProperty("auroraFrequency", String.valueOf(auroraFrequency));
+		p.setProperty("globalCloudHeightOffset", String.valueOf(globalCloudHeightOffset));
+		p.setProperty("middleCloudLayerEnabled", String.valueOf(middleCloudLayerEnabled));
+		p.setProperty("middleCloudLayerOffset", String.valueOf(middleCloudLayerOffset));
+		p.setProperty("upperCloudLayerEnabled", String.valueOf(upperCloudLayerEnabled));
+		p.setProperty("upperCloudLayerOffset", String.valueOf(upperCloudLayerOffset));
 		try (Writer w = Files.newBufferedWriter(file)) {
 			p.store(w, "Skybox Overhaul");
 		} catch (IOException e) {
@@ -132,7 +153,6 @@ public final class SkyboxConfig {
 		paletteStrength = 0.25F;
 		sunsetIntensity = 0.5F;
 		hideVanillaFan = false;
-		customCelestials = false;
 		cometPercent = 77;
 		auroraGridCellSize = 20.5F;
 		auroraHeight = 120.0F;
@@ -145,7 +165,7 @@ public final class SkyboxConfig {
 		save(f);
 		reset();
 		load(f);
-		check(paletteStrength == 0.25F && sunsetIntensity == 0.5F && !hideVanillaFan && !customCelestials && cometPercent == 77
+		check(paletteStrength == 0.25F && sunsetIntensity == 0.5F && !hideVanillaFan && cometPercent == 77
 			&& auroraGridCellSize == 20.5F && auroraHeight == 120.0F
 			&& !auroraEnabled && !auroraColdOnly && auroraBrightness == 0.4F && auroraSpeed == 1.5F
 			&& !auroraFlares && auroraFrequency == 0.75F, "round trip");
@@ -153,7 +173,7 @@ public final class SkyboxConfig {
 		Files.writeString(f, "paletteStrength=9\nsunsetIntensity=abc\ncometPercent=-5\nauroraGridCellSize=0.2\nauroraHeight=999\n"
 			+ "auroraEnabled=maybe\nauroraBrightness=9\nauroraSpeed=0.01\nauroraFlares=\nauroraFrequency=7\n");
 		load(f);
-		check(paletteStrength == 1.0F && sunsetIntensity == 1.0F && cometPercent == 0 && hideVanillaFan && customCelestials
+		check(paletteStrength == 1.0F && sunsetIntensity == 1.0F && cometPercent == 0 && hideVanillaFan
 			&& auroraGridCellSize == 8.0F && auroraHeight == 180.0F
 			&& auroraEnabled && auroraColdOnly && auroraBrightness == 1.0F && auroraSpeed == 0.25F
 			&& auroraFlares && auroraFrequency == 1.0F, "clamp + defaults");
