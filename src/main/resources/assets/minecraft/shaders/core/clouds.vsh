@@ -1,8 +1,9 @@
 #version 330
+#extension GL_ARB_separate_shader_objects : require
 
-#moj_import <minecraft:fog.glsl>
-#moj_import <minecraft:dynamictransforms.glsl>
-#moj_import <minecraft:projection.glsl>
+#include <minecraft:fog.glsl>
+#include <minecraft:dynamictransforms.glsl>
+#include <minecraft:projection.glsl>
 
 const int FLAG_MASK_DIR = 7;
 const int FLAG_INSIDE_FACE = 1 << 4;
@@ -10,18 +11,19 @@ const int FLAG_USE_TOP_COLOR = 1 << 5;
 const int FLAG_EXTRA_Z = 1 << 6;
 const int FLAG_EXTRA_X = 1 << 7;
 
-// The last component of the two vec3 members occupies std140 padding in vanilla CloudInfo.
-// CloudRenderer still writes the exact same 48-byte layout.
+// 26.3 CloudInfo is exactly 44 bytes. PackedSunDirection occupies the spare word at offset 28.
+// The alpha word at offset 12 contains alpha/twilight/moonlight/lightning in its mantissa.
 layout(std140) uniform CloudInfo {
     vec4 CloudColor;
-    vec4 CloudOffset;
-    vec4 CellSize;
+    vec3 CloudOffset;
+    float PackedSunDirection;
+    vec3 CellSize;
 };
 
 uniform isamplerBuffer CloudFaces;
 
-out float vertexDistance;
-out vec4 vertexColor;
+layout(location = 0) out float vertexDistance;
+layout(location = 1) out vec4 vertexColor;
 
 const vec3[] vertices = vec3[](
     vec3(1, 0, 0), vec3(1, 0, 1), vec3(0, 0, 1), vec3(0, 0, 0),
@@ -42,8 +44,8 @@ const vec4[] faceColors = vec4[](
 );
 
 void main() {
-    int quadVertex = gl_VertexID % 4;
-    int index = (gl_VertexID / 4) * 3;
+    int quadVertex = gl_VertexIndex % 4;
+    int index = (gl_VertexIndex / 4) * 3;
 
     int cellX = texelFetch(CloudFaces, index).r;
     int cellZ = texelFetch(CloudFaces, index + 1).r;
@@ -59,17 +61,21 @@ void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
     vertexDistance = fog_spherical_distance(pos);
 
-    vec4 color = (useTopColor ? faceColors[1] : faceColors[direction]) * CloudColor;
+    uint packedLighting = floatBitsToUint(CloudColor.a) & 0x007FFFFFu;
+    float cloudAlpha = float((packedLighting >> 16u) & 0x7Fu) / 127.0;
+    float twilight = float((packedLighting >> 10u) & 0x3Fu) / 63.0;
+    float moonlight = float((packedLighting >> 5u) & 0x1Fu) / 31.0;
+    float lightning = float(packedLighting & 0x1Fu) / 31.0;
+    vec4 color = (useTopColor ? faceColors[1] : faceColors[direction]) * vec4(CloudColor.rgb, cloudAlpha);
 
     // Directional golden-hour lighting. Cloud mesh coordinates are world-axis aligned but
     // camera-relative, so +X is sunrise/east and -X is sunset/west from the viewer's position.
     // The tint is a continuous azimuth gradient: cool violet on the shadow side, rose in the
     // transition, and peach/amber toward the low sun. It is deliberately visible in both
     // Fancy (extruded faces) and Fast (flat faces) cloud modes.
-    float packedSunDirection = CloudOffset.w;
+    float packedSunDirection = PackedSunDirection;
     float sunSide = packedSunDirection < 0.0 ? -1.0 : 1.0;
     float warmPhase = clamp((abs(packedSunDirection) - 1.0) * 2.0, 0.0, 1.0);
-    float twilight = clamp(CellSize.w, 0.0, 1.0);
 
     float horizontalDistance = length(pos.xz);
     vec2 cloudAzimuth = pos.xz / max(horizontalDistance, 0.001);
@@ -89,7 +95,7 @@ void main() {
     warmRamp = mix(warmRamp, amber, amberBlend * 0.34);
 
     // After the sun drops below the horizon, the orange ramp cools into a pink/violet
-    // afterglow. The phase comes from the magnitude packed into CloudOffset.w.
+    // afterglow. The phase comes from the magnitude packed into PackedSunDirection.
     vec3 afterglowRamp = mix(shadowViolet * 0.92, rosePink * 0.94,
                              smoothstep(-0.72, 0.28, sunAlignment));
     afterglowRamp = mix(afterglowRamp, dustyRose,
@@ -117,6 +123,17 @@ void main() {
         vec3 rimColor = mix(vec3(0.80, 0.57, 0.76), vec3(1.0, 0.64, 0.43), warmPhase);
         color.rgb = mix(color.rgb, rimColor, rimStrength);
     }
+
+    // Cold moon fill comes from the opposite X direction to the sun, with a subtle directional gradient.
+    float moonSide = -sunSide;
+    float moonAlignment = clamp(dot(cloudAzimuth, vec2(moonSide, 0.0)), -1.0, 1.0);
+    float moonFacing = smoothstep(-0.40, 0.85, moonAlignment);
+    float moonInfluence = moonlight * (0.42 + 0.58 * moonFacing);
+    vec3 moonTint = vec3(0.40, 0.56, 0.88);
+    color.rgb = mix(color.rgb, color.rgb * 0.90 + moonTint * 0.32, moonInfluence);
+
+    // Lightning briefly lights every visible face with a cool white-blue flash.
+    color.rgb = min(color.rgb + vec3(0.58, 0.68, 0.88) * lightning, vec3(1.0));
 
     vertexColor = color;
 }

@@ -20,5 +20,8 @@
 	"skybox-overhaul.config.cloud.upper": "Верхний",
 	"skybox-overhaul.config.cloud.global": "Общий офсет высоты: %s",
 	"skybox-overhaul.config.cloud.offset": "Смещение: %s",
-	"skybox-overhaul.config.section.clouds": "Облачные слои"
+	"skybox-overhaul.config.section.clouds": "Облачные слои",
+	"skybox-overhaul.config.cloud.appearance": "Прозрачность и скорость облаков",
+	"skybox-overhaul.config.cloud.opacity": "Прозрачность: %s",
+	"skybox-overhaul.config.cloud.speed": "Скорость: %s"
 }

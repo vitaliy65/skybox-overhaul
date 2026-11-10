@@ -12,13 +12,13 @@ import net.minecraft.client.renderer.oit.OitRenderPassProvider;
 import net.minecraft.client.renderer.oit.OitStage;
 
 import net.minecraft.client.CloudStatus;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.CloudRenderer;
 import net.minecraft.client.renderer.MappableRingBuffer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.phys.Vec3;
 
-import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -26,11 +26,13 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import skybox.overhaul.client.cloud.CloudLayers;
 import skybox.overhaul.client.cloud.CloudLighting;
 import skybox.overhaul.client.cloud.CloudTextureOverride;
+import skybox.overhaul.client.config.SkyboxConfig;
 import skybox.overhaul.client.render.SkyboxState;
 
 @Mixin(CloudRenderer.class)
@@ -44,6 +46,24 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
 
     @Unique
     private static boolean skybox$warned;
+
+    @ModifyVariable(
+            method = "prepare(ILnet/minecraft/client/CloudStatus;FILnet/minecraft/world/phys/Vec3;JF)V",
+            at = @At("HEAD"), argsOnly = true
+    )
+    private long skybox$cloudSpeed(long gameTime) {
+        return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
+                ? gameTime : Math.round(gameTime * (double) SkyboxConfig.cloudSpeed);
+    }
+
+    @ModifyVariable(
+            method = "prepare(ILnet/minecraft/client/CloudStatus;FILnet/minecraft/world/phys/Vec3;JF)V",
+            at = @At("HEAD"), argsOnly = true, ordinal = 1
+    )
+    private float skybox$cloudPartialTickSpeed(float partialTicks) {
+        return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
+                ? partialTicks : partialTicks * SkyboxConfig.cloudSpeed;
+    }
 
     @Override
     public void skybox$setTextureOverride(Identifier texture) {
@@ -71,16 +91,9 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
     }
 
     /**
-     * CloudInfo std140 layout:
-     *
-     * vec4: offset 0
-     * vec3: offset 16 (padding at 28)
-     * vec3: offset 32 (padding at 44)
-     *
-     * The padding floats store custom cloud lighting data.
-     *
-     * This injection runs after vanilla writes CloudInfo
-     * and closes its mapped view.
+     * 26.3 CloudInfo is 44 bytes: vec4 CloudColor (0), vec3 CloudOffset (16), vec3 CellSize (32).
+     * Offset 28 is the only spare float. CloudColor.a (12) carries four packed lighting channels.
+     * Never write at offset 44: it is outside the mapped UBO in this version.
      */
     @Inject(
             method = "prepare(ILnet/minecraft/client/CloudStatus;FILnet/minecraft/world/phys/Vec3;JF)V",
@@ -102,31 +115,26 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
                 : 1.0F;
 
         float twilight = SkyboxState.valid
-                ? CloudLighting.twilightStrength(
-                SkyboxState.sunAngle,
-                SkyboxState.rainLevel
-        )
+                ? CloudLighting.twilightStrength(SkyboxState.sunAngle, SkyboxState.rainLevel)
                 : 0.0F;
+        float moonlight = SkyboxState.valid
+                ? CloudLighting.moonlightStrength(SkyboxState.sunAngle, SkyboxState.rainLevel)
+                : 0.0F;
+        float lightning = SkyboxState.valid ? SkyboxState.lightningFlash : 0.0F;
 
-        try (GpuBufferSlice.MappedView view =
-                     this.ubo.currentBuffer().map(false, true)) {
-
+        try (GpuBufferSlice.MappedView view = this.ubo.currentBuffer().map(false, true)) {
             ByteBuffer data = view.data();
-
-            // 26.3: CloudInfo layout/size changed -> mapped buffer can be < 48 bytes (IndexOutOfBounds crash).
-            // Skip instead of crashing; log the real size once so the new layout can be ported.
-            if (data.limit() < 48) {
+            if (data.limit() < 44) {
                 if (!skybox$warned) {
                     skybox$warned = true;
-                    LoggerFactory.getLogger("skybox-overhaul").warn(
-                            "Cloud UBO is {} bytes (expected >= 48): CloudInfo layout changed, cloud lighting disabled",
-                            data.limit());
+                    org.slf4j.LoggerFactory.getLogger("skybox-overhaul").warn(
+                            "Cloud UBO is {} bytes (expected 44): custom cloud lighting skipped", data.limit());
                 }
                 return;
             }
-
+            int cloudColor = CloudLighting.applyOpacity(color, SkyboxConfig.cloudOpacity);
+            data.putFloat(12, CloudLighting.packAlphaAndLighting(cloudColor, twilight, moonlight, lightning));
             data.putFloat(28, sunDirection);
-            data.putFloat(44, twilight);
         }
     }
 
@@ -148,14 +156,18 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
         CloudRenderer self = (CloudRenderer) (Object) this;
 
         if (!CloudLayers.isAdditionalRenderer(self)) {
+            Minecraft mc = Minecraft.getInstance();
+            long worldGameTime = mc.level == null ? gameTime : mc.level.getGameTime();
+            long cloudGameTime = Math.round(worldGameTime * (double) SkyboxConfig.cloudSpeed);
             CloudLayers.renderAdditional(
                     color,
                     cloudStatus,
                     bottomY,
                     range,
                     cameraPosition,
-                    gameTime,
-                    partialTicks
+                    cloudGameTime,
+                    partialTicks,
+                    worldGameTime
             );
         }
     }

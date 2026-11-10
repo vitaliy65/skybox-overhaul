@@ -16,6 +16,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import skybox.overhaul.client.render.SkyboxPipelines;
 import skybox.overhaul.client.render.SkyboxState;
+import skybox.overhaul.client.sky.SkyPalette;
 
 /**
  * Paints the whole vertical sky gradient ourselves, so vanilla's fog ramp (and the line it leaves at
@@ -82,7 +83,8 @@ public final class HorizonHaze implements AutoCloseable {
 		float a = SkyboxState.rainBrightness; // fade to vanilla in rain
 		Vector4f fog = SkyboxState.FOG;
 		GpuBufferSlice base = transform(((skyColor >> 16) & 0xFF) / 255.0F, ((skyColor >> 8) & 0xFF) / 255.0F, (skyColor & 0xFF) / 255.0F, a);
-		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, a);
+		float dawnHaze = a * (1.0F + SkyPalette.dawnStrength(SkyboxState.sunAngle) * 0.14F);
+		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, dawnHaze);
 
 		pass.setPipeline(RenderSystem.getCompiledPipeline(SkyboxPipelines.HAZE));
 		RenderSystem.bindDefaultUniforms(pass);

@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import skybox.overhaul.client.aurora.AuroraRenderer;
+import skybox.overhaul.client.cloud.CloudLighting;
 import skybox.overhaul.client.config.SkyboxConfig;
 import skybox.overhaul.client.night.NightSky;
 import skybox.overhaul.client.render.SkyboxState;
@@ -86,6 +87,7 @@ public class SkyRendererMixin {
 		Minecraft mc = Minecraft.getInstance();
 		ClientLevel level = mc.level;
 		if (level == null) {
+			SkyboxState.lightningFlash = 0.0F;
 			skybox$zenith = vanilla;
 			return skyColor;
 		}
@@ -95,6 +97,8 @@ public class SkyRendererMixin {
 		SkyboxState.rainLevel = rain;
 		SkyboxState.rainBrightness = 1.0F - rain;
 		SkyboxState.sunAngle = sunAngle;
+		SkyboxState.lightningFlash = CloudLighting.lightningStrength(
+				((ClientLevelAccessor) (Object) level).skybox$getSkyFlashTime());
 		if (mc.player != null) {
 			BiomeSky.update(BiomeGroups.of(level.getBiome(mc.player.blockPosition())));
 		}

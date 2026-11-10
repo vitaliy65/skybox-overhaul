@@ -62,14 +62,15 @@ public final class CloudLayers {
             int range,
             Vec3 cameraPosition,
             long gameTime,
-            float partialTicks
+            float partialTicks,
+            long worldGameTime
     ) {
         float rain = clamp01(SkyboxState.rainLevel);
         int rainTintedColor = tintForRain(color, rain);
 
         // Integrate wind over elapsed ticks instead of multiplying total world time by current
         // rain strength. That prevents a visible cloud-pattern jump when rain starts or stops.
-        updateWeatherDrift(gameTime, rain);
+        updateWeatherDrift(worldGameTime, rain);
 
         if (SkyboxConfig.middleCloudLayerEnabled) MIDDLE.prepare(
                 applyOpacity(rainTintedColor, MIDDLE_OPACITY + 0.16F * rain),
@@ -77,7 +78,7 @@ public final class CloudLayers {
                 bottomY + MIDDLE_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.middleCloudLayerOffset,
                 range,
                 cameraPosition.add(0.0D, 0.0D, middleWindZ),
-                gameTime + MIDDLE_PHASE_OFFSET,
+                gameTime + Math.round(MIDDLE_PHASE_OFFSET * SkyboxConfig.cloudSpeed),
                 partialTicks
         );
 
@@ -87,7 +88,7 @@ public final class CloudLayers {
                 bottomY + UPPER_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.upperCloudLayerOffset,
                 range,
                 cameraPosition.add(upperWindX, 0.0D, upperWindZ),
-                gameTime + UPPER_PHASE_OFFSET,
+                gameTime + Math.round(UPPER_PHASE_OFFSET * SkyboxConfig.cloudSpeed),
                 partialTicks
         );
     }
@@ -121,9 +122,10 @@ public final class CloudLayers {
 
         long elapsedTicks = gameTime - lastWeatherTick;
         float averageRain = (previousRain + rain) * 0.5F;
-        middleWindZ += elapsedTicks * 0.010D * averageRain;
-        upperWindX += elapsedTicks * 0.0035D * averageRain;
-        upperWindZ -= elapsedTicks * 0.006D * averageRain;
+        double speed = SkyboxConfig.cloudSpeed;
+        middleWindZ += elapsedTicks * 0.010D * averageRain * speed;
+        upperWindX += elapsedTicks * 0.0035D * averageRain * speed;
+        upperWindZ -= elapsedTicks * 0.006D * averageRain * speed;
         lastWeatherTick = gameTime;
         previousRain = rain;
     }
