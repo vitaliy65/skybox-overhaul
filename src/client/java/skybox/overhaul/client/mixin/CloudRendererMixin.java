@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.CloudStatus;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.CloudRenderer;
 import net.minecraft.client.renderer.MappableRingBuffer;
 import net.minecraft.resources.Identifier;
@@ -17,11 +18,13 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import skybox.overhaul.client.CloudLayers;
 import skybox.overhaul.client.CloudLighting;
 import skybox.overhaul.client.CloudTextureOverride;
+import skybox.overhaul.client.SkyboxConfig;
 import skybox.overhaul.client.SkyboxState;
 
 @Mixin(CloudRenderer.class)
@@ -29,6 +32,24 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
     @Shadow @Final private MappableRingBuffer ubo;
     @Unique
     private Identifier skybox$textureOverride;
+
+    @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+    private int skybox$cloudOpacity(int color) {
+        return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
+                ? color : CloudLighting.applyOpacity(color, SkyboxConfig.cloudOpacity);
+    }
+
+    @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true)
+    private long skybox$cloudSpeed(long gameTime) {
+        return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
+                ? gameTime : Math.round(gameTime * (double) SkyboxConfig.cloudSpeed);
+    }
+
+    @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true, ordinal = 1)
+    private float skybox$cloudPartialTickSpeed(float partialTicks) {
+        return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
+                ? partialTicks : partialTicks * SkyboxConfig.cloudSpeed;
+    }
 
     @Override
     public void skybox$setTextureOverride(Identifier texture) {
@@ -56,7 +77,7 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
     /**
      * CloudInfo is std140: vec4 (16 bytes), vec3 + 4-byte padding, vec3 + 4-byte padding.
      * The two padding floats are unused by vanilla. The mod shader reads them as packed sun
-     * direction/warmth phase and twilight strength, avoiding another UBO or render pipeline.
+     * direction/warmth phase and 3-channel twilight/moonlight/lightning values.
      * This injection runs after vanilla has filled CloudInfo but before createRenderPass; mapping
      * the UBO after the pass opens is illegal in the 26.1 command encoder and crashes the client.
      */
@@ -82,12 +103,16 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
         float twilight = SkyboxState.valid
                 ? CloudLighting.twilightStrength(SkyboxState.sunAngle, SkyboxState.rainLevel)
                 : 0.0F;
+        float moonlight = SkyboxState.valid
+                ? CloudLighting.moonlightStrength(SkyboxState.sunAngle, SkyboxState.rainLevel)
+                : 0.0F;
+        float lightning = SkyboxState.valid ? SkyboxState.lightningFlash : 0.0F;
 
         try (GpuBuffer.MappedView view = RenderSystem.getDevice().createCommandEncoder()
                 .mapBuffer(this.ubo.currentBuffer(), false, true)) {
             ByteBuffer data = view.data();
             data.putFloat(28, sunDirection);
-            data.putFloat(44, twilight);
+            data.putFloat(44, CloudLighting.packLighting(twilight, moonlight, lightning));
         }
     }
 
@@ -104,14 +129,18 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
     ) {
         CloudRenderer self = (CloudRenderer) (Object) this;
         if (!CloudLayers.isAdditionalRenderer(self)) {
+            long worldGameTime = Minecraft.getInstance().level == null
+                    ? gameTime : Minecraft.getInstance().level.getGameTime();
+            long cloudGameTime = Math.round(worldGameTime * (double) SkyboxConfig.cloudSpeed);
             CloudLayers.renderAdditional(
                     color,
                     cloudStatus,
                     bottomY,
                     range,
                     cameraPosition,
-                    gameTime,
-                    partialTicks
+                    cloudGameTime,
+                    partialTicks,
+                    worldGameTime
             );
         }
     }

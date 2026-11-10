@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import skybox.overhaul.client.CloudLighting;
 import skybox.overhaul.client.HorizonHaze;
 import skybox.overhaul.client.NightSky;
 import skybox.overhaul.client.SkyPalette;
@@ -71,6 +72,8 @@ public class SkyRendererMixin {
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void skybox$zenith(ClientLevel level, float partialTicks, Camera camera, SkyRenderState state, CallbackInfo ci) {
 		SkyboxState.rainLevel = level.getRainLevel(partialTicks);
+		SkyboxState.lightningFlash = CloudLighting.lightningStrength(
+			((ClientLevelAccessor) (Object) level).skybox$getSkyFlashTime());
 		if (state.skybox == Skybox.NONE || state.skybox == Skybox.END) {
 			return;
 		}

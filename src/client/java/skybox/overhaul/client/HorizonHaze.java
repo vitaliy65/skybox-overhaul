@@ -81,7 +81,7 @@ public final class HorizonHaze implements AutoCloseable {
 		float a = SkyboxState.rainBrightness; // fade to vanilla in rain
 		Vector4f fog = SkyboxState.FOG;
 		GpuBufferSlice base = transform(((skyColor >> 16) & 0xFF) / 255.0F, ((skyColor >> 8) & 0xFF) / 255.0F, (skyColor & 0xFF) / 255.0F, a);
-		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, a);
+		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, Math.min(1.0F, a * (1.0F + SkyPalette.dawnStrength(SkyboxState.sunAngle) * 0.14F)));
 
 		GpuTextureView color = Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
 		GpuTextureView depth = Minecraft.getInstance().getMainRenderTarget().getDepthTextureView();
