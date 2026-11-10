@@ -11,6 +11,8 @@ public final class SkyboxState {
 	public static float sunAngle;
 	/** Actual weather strength: 0 = clear, 1 = full rain. */
 	public static float rainLevel;
+	/** 0..1 pulse from vanilla lightning; zero when the player has hidden sky flashes. */
+	public static float lightningFlash;
 	public static boolean valid;
 
 	private SkyboxState() {}

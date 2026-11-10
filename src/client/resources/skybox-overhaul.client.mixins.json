@@ -7,6 +7,7 @@
 		"SkyRendererMixin",
 		"FogRendererMixin",
 		"CloudRendererMixin",
+		"ClientLevelAccessor",
 		"LevelRendererMixin"
 	],
 	"injectors": {

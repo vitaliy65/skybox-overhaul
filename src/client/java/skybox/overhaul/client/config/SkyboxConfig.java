@@ -38,6 +38,10 @@ public final class SkyboxConfig {
 	public static float auroraFrequency = 0.4F;
 	/** Number of stars in the night sky, 1500..8000. */
 	public static int starCount = 1500;
+	/** Global alpha multiplier for vanilla and additional clouds, 0..1. */
+	public static float cloudOpacity = 1.0F;
+	/** Cloud movement multiplier; 0 pauses the movement, 1 is vanilla speed. */
+	public static float cloudSpeed = 1.0F;
 
 	/** Shared vertical adjustment for all CloudLayers-managed layers, in blocks (-256..256). */
 	public static float globalCloudHeightOffset = 0.0F;
@@ -66,6 +70,8 @@ public final class SkyboxConfig {
 		auroraFlares = true;
 		auroraFrequency = 0.4F;
 		starCount = 1500;
+		cloudOpacity = 1.0F;
+		cloudSpeed = 1.0F;
 		globalCloudHeightOffset = 0.0F;
 		middleCloudLayerEnabled = true;
 		middleCloudLayerOffset = 0.0F;
@@ -100,6 +106,8 @@ public final class SkyboxConfig {
 		auroraColdOnly = bool(p, "auroraColdOnly", auroraColdOnly);
 		auroraFlares = bool(p, "auroraFlares", auroraFlares);
 		starCount = Math.round(rangedNum(p, "starCount", starCount, 1500.0F, 8000.0F));
+		cloudOpacity = rangedNum(p, "cloudOpacity", cloudOpacity, 0.0F, 1.0F);
+		cloudSpeed = rangedNum(p, "cloudSpeed", cloudSpeed, 0.0F, 3.0F);
 	}
 
 	public static void save(Path file) {
@@ -117,6 +125,8 @@ public final class SkyboxConfig {
 		p.setProperty("auroraFlares", String.valueOf(auroraFlares));
 		p.setProperty("auroraFrequency", String.valueOf(auroraFrequency));
 		p.setProperty("starCount", String.valueOf(starCount));
+		p.setProperty("cloudOpacity", String.valueOf(cloudOpacity));
+		p.setProperty("cloudSpeed", String.valueOf(cloudSpeed));
 		p.setProperty("globalCloudHeightOffset", String.valueOf(globalCloudHeightOffset));
 		p.setProperty("middleCloudLayerEnabled", String.valueOf(middleCloudLayerEnabled));
 		p.setProperty("middleCloudLayerOffset", String.valueOf(middleCloudLayerOffset));
@@ -167,27 +177,33 @@ public final class SkyboxConfig {
 		auroraSpeed = 1.5F;
 		auroraFlares = false;
 		auroraFrequency = 0.75F;
+		cloudOpacity = 0.72F;
+		cloudSpeed = 1.75F;
 		save(f);
 		reset();
 		load(f);
 		check(paletteStrength == 0.25F && sunsetIntensity == 0.5F && !hideVanillaFan && cometPercent == 77
 			&& auroraGridCellSize == 20.5F && auroraHeight == 120.0F
 			&& !auroraEnabled && !auroraColdOnly && auroraBrightness == 0.4F && auroraSpeed == 1.5F
-			&& !auroraFlares && auroraFrequency == 0.75F, "round trip");
+			&& !auroraFlares && auroraFrequency == 0.75F
+			&& cloudOpacity == 0.72F && cloudSpeed == 1.75F, "round trip");
 
 		Files.writeString(f, "paletteStrength=9\nsunsetIntensity=abc\ncometPercent=-5\nauroraGridCellSize=0.2\nauroraHeight=999\n"
-			+ "auroraEnabled=maybe\nauroraBrightness=9\nauroraSpeed=0.01\nauroraFlares=\nauroraFrequency=7\n");
+			+ "auroraEnabled=maybe\nauroraBrightness=9\nauroraSpeed=0.01\nauroraFlares=\nauroraFrequency=7\n"
+			+ "cloudOpacity=-2\ncloudSpeed=9\n");
 		load(f);
 		check(paletteStrength == 1.0F && sunsetIntensity == 1.0F && cometPercent == 0 && hideVanillaFan
 			&& auroraGridCellSize == 8.0F && auroraHeight == 180.0F
 			&& auroraEnabled && auroraColdOnly && auroraBrightness == 1.0F && auroraSpeed == 0.25F
-			&& auroraFlares && auroraFrequency == 1.0F, "clamp + defaults");
+			&& auroraFlares && auroraFrequency == 1.0F
+			&& cloudOpacity == 0.0F && cloudSpeed == 3.0F, "clamp + defaults");
 
 		Files.delete(f);
 		load(f);
 		check(paletteStrength == 0.8F && cometPercent == 30 && auroraGridCellSize == 16.0F
 			&& auroraHeight == 90.0F && auroraEnabled && auroraColdOnly && auroraBrightness == 1.0F
-			&& auroraSpeed == 1.0F && auroraFlares && auroraFrequency == 0.4F, "missing file = defaults");
+			&& auroraSpeed == 1.0F && auroraFlares && auroraFrequency == 0.4F
+			&& cloudOpacity == 1.0F && cloudSpeed == 1.0F, "missing file = defaults");
 		System.out.println("SkyboxConfig OK");
 	}
 

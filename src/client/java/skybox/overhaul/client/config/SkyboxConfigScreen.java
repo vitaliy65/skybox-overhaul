@@ -21,11 +21,11 @@ import skybox.overhaul.client.SkyboxOverhaulClient;
  * introducing a separate widget library. Changes apply live and are persisted when the screen is closed.
  */
 public final class SkyboxConfigScreen extends Screen {
-	private static final int TOP = 38;
-	private static final int ROW = 19;
-	private static final int CONTROL_HEIGHT = 18;
+	private static final int TOP = 28;
+	private static final int ROW = 17;
+	private static final int CONTROL_HEIGHT = 16;
 	private static final int AURORA_ROWS = 8;
-	private static final int CLOUD_ROW_GAP = 21;
+	private static final int CLOUD_ROW_GAP = 18;
 
 	private final Screen parent;
 
@@ -44,19 +44,21 @@ public final class SkyboxConfigScreen extends Screen {
 		int globalY = cloudHeadingY + 13;
 		int middleY = globalY + CLOUD_ROW_GAP;
 		int upperY = middleY + CLOUD_ROW_GAP;
-		int skyBottom = upperY + CONTROL_HEIGHT + 2;
+		int cloudAppearanceY = upperY + CLOUD_ROW_GAP;
+		int cloudAppearanceControlsY = cloudAppearanceY + 12;
+		int skyBottom = cloudAppearanceControlsY + CONTROL_HEIGHT + 2;
 		int auroraBottom = TOP + AURORA_ROWS * ROW;
 		int contentBottom = Math.max(skyBottom, auroraBottom);
 		int footerY = Math.max(this.height - 24, contentBottom + 5);
 
 		// Background is a non-interactive widget so it is rendered behind all controls.
 		addRenderableWidget(new PanelBackground(this.width, footerY + 22, left, right, columnWidth,
-			cloudHeadingY, globalY, middleY, upperY, footerY));
+			cloudHeadingY, globalY, cloudAppearanceControlsY, footerY));
 
-		addRenderableWidget(new StringWidget(8, 9, this.width - 16, 12, this.title, this.font));
-		addRenderableWidget(new StringWidget(left, 25, columnWidth, 10,
+		addRenderableWidget(new StringWidget(8, 2, this.width - 16, 12, this.title, this.font));
+		addRenderableWidget(new StringWidget(left, 16, columnWidth, 10,
 			Component.translatable("skybox-overhaul.config.section.sky"), this.font));
-		addRenderableWidget(new StringWidget(right, 25, columnWidth, 10,
+		addRenderableWidget(new StringWidget(right, 16, columnWidth, 10,
 			Component.translatable("skybox-overhaul.config.section.aurora"), this.font));
 
 		// Sky settings retain the controls specific to this project version.
@@ -103,6 +105,19 @@ public final class SkyboxConfigScreen extends Screen {
 			v -> SkyboxConfig.upperCloudLayerOffset = (float) Math.round(v), true);
 		upperOffset.active = SkyboxConfig.upperCloudLayerEnabled;
 		addRenderableWidget(upperOffset);
+
+		// Global appearance controls affect vanilla clouds and both additional layers.
+		addRenderableWidget(new StringWidget(left + 4, cloudAppearanceY, columnWidth - 8, 10,
+			Component.translatable("skybox-overhaul.config.cloud.appearance"), this.font));
+		int appearanceGap = 6;
+		int appearanceSliderWidth = (columnWidth - 12) / 2;
+		addRenderableWidget(new StyledSlider(left + 3, cloudAppearanceControlsY, appearanceSliderWidth,
+			CONTROL_HEIGHT, "skybox-overhaul.config.cloud.opacity", SkyboxConfig.cloudOpacity,
+			0.0, 1.0, "", 0, true, v -> SkyboxConfig.cloudOpacity = (float) v, false));
+		addRenderableWidget(new StyledSlider(left + 3 + appearanceSliderWidth + appearanceGap,
+			cloudAppearanceControlsY, appearanceSliderWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.cloud.speed", SkyboxConfig.cloudSpeed,
+			0.0, 3.0, "x", 1, false, v -> SkyboxConfig.cloudSpeed = (float) v, false));
 
 		// Aurora column: subordinate controls are visually disabled while the master switch is off.
 		boolean auroraOn = SkyboxConfig.auroraEnabled;
@@ -163,30 +178,29 @@ public final class SkyboxConfigScreen extends Screen {
 		private final int columnWidth;
 		private final int cloudHeadingY;
 		private final int globalY;
-		private final int middleY;
-		private final int upperY;
+		private final int cloudAppearanceControlsY;
 		private final int footerY;
 
 		PanelBackground(int screenWidth, int screenHeight, int left, int right, int columnWidth,
-				int cloudHeadingY, int globalY, int middleY, int upperY, int footerY) {
+				int cloudHeadingY, int globalY, int cloudAppearanceControlsY, int footerY) {
 			super(0, 0, screenWidth, screenHeight, Component.empty());
 			this.left = left;
 			this.right = right;
 			this.columnWidth = columnWidth;
 			this.cloudHeadingY = cloudHeadingY;
 			this.globalY = globalY;
-			this.middleY = middleY;
-			this.upperY = upperY;
+			this.cloudAppearanceControlsY = cloudAppearanceControlsY;
 			this.footerY = footerY;
 			this.active = false;
 		}
 
 		@Override
 		public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-			int panelBottom = footerY - 7;
-			drawPanel(graphics, left - 5, 21, left + columnWidth + 5, panelBottom);
-			drawPanel(graphics, right - 5, 21, right + columnWidth + 5, panelBottom);
-			drawPanel(graphics, left + 1, cloudHeadingY - 3, left + columnWidth - 1, upperY + CONTROL_HEIGHT + 2);
+			int panelBottom = footerY - 5;
+			drawPanel(graphics, left - 5, 14, left + columnWidth + 5, panelBottom);
+			drawPanel(graphics, right - 5, 14, right + columnWidth + 5, panelBottom);
+			drawPanel(graphics, left + 1, cloudHeadingY - 3, left + columnWidth - 1,
+				cloudAppearanceControlsY + CONTROL_HEIGHT + 2);
 			drawPanel(graphics, left + 3, globalY - 1, left + columnWidth - 3, globalY + CONTROL_HEIGHT + 1);
 		}
 

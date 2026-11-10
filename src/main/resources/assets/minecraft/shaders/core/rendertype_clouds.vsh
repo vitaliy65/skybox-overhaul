@@ -69,7 +69,12 @@ void main() {
     float packedSunDirection = CloudOffset.w;
     float sunSide = packedSunDirection < 0.0 ? -1.0 : 1.0;
     float warmPhase = clamp((abs(packedSunDirection) - 1.0) * 2.0, 0.0, 1.0);
-    float twilight = clamp(CellSize.w, 0.0, 1.0);
+    // CellSize.w carries three packed 8-bit lighting values: sunset/dawn, moonlight, lightning.
+    // Every packed integer through 0xFFFFFF is exactly representable by a 32-bit float.
+    float packedLighting = max(CellSize.w, 0.0);
+    float twilight = mod(packedLighting, 256.0) / 255.0;
+    float moonlight = mod(floor(packedLighting / 256.0), 256.0) / 255.0;
+    float lightning = floor(packedLighting / 65536.0) / 255.0;
 
     float horizontalDistance = length(pos.xz);
     vec2 cloudAzimuth = pos.xz / max(horizontalDistance, 0.001);
@@ -117,6 +122,18 @@ void main() {
         vec3 rimColor = mix(vec3(0.80, 0.57, 0.76), vec3(1.0, 0.64, 0.43), warmPhase);
         color.rgb = mix(color.rgb, rimColor, rimStrength);
     }
+
+    // The moon is on the opposite side of the solar path. Its contribution is deliberately
+    // weak and blue-white, but it lifts cloud faces instead of leaving night clouds black.
+    float moonFacing = smoothstep(-0.45, 0.92, -sunAlignment);
+    vec3 moonTint = mix(vec3(0.25, 0.33, 0.53), vec3(0.58, 0.70, 0.94), moonFacing);
+    float moonBlend = moonlight * (0.16 + 0.34 * moonFacing);
+    color.rgb = mix(color.rgb, max(color.rgb, moonTint), moonBlend);
+
+    // ClientLevel's sky-flash timer drives a brief cloud-wide lightning pulse.
+    vec3 lightningTint = vec3(0.78, 0.87, 1.0);
+    color.rgb = mix(color.rgb, max(color.rgb, lightningTint), lightning * 0.94);
+    color.rgb = min(color.rgb + vec3(0.05, 0.07, 0.11) * lightning, vec3(1.0));
 
     vertexColor = color;
 }

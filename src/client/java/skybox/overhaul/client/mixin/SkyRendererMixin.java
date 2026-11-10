@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import skybox.overhaul.client.cloud.CloudLighting;
 import skybox.overhaul.client.config.SkyboxConfig;
 import skybox.overhaul.client.night.NightSky;
 import skybox.overhaul.client.render.SkyboxState;
@@ -71,6 +72,8 @@ public class SkyRendererMixin {
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void skybox$zenith(ClientLevel level, float partialTicks, Camera camera, SkyRenderState state, CallbackInfo ci) {
 		SkyboxState.rainLevel = level.getRainLevel(partialTicks);
+		SkyboxState.lightningFlash = CloudLighting.lightningStrength(
+			((ClientLevelAccessor) (Object) level).skybox$getSkyFlashTime());
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player != null) {
 			BiomeSky.update(BiomeGroups.of(level.getBiome(mc.player.blockPosition())));
