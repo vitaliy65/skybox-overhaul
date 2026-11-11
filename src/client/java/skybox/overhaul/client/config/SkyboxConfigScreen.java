@@ -16,6 +16,7 @@ import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import skybox.overhaul.client.SkyboxOverhaulClient;
 
+
 /**
  * ModMenu configuration screen. Custom controls and panel backgrounds keep the UI visually grouped without
  * introducing a separate widget library. Changes apply live and are persisted when the screen is closed.
@@ -28,6 +29,8 @@ public final class SkyboxConfigScreen extends Screen {
 	private static final int CLOUD_ROW_GAP = 18;
 
 	private final Screen parent;
+	/** 0 = sky / aurora / clouds, 1 = meteor showers / far storms / morning fog. */
+	private int page;
 
 	public SkyboxConfigScreen(Screen parent) {
 		super(Component.translatable("skybox-overhaul.config.title"));
@@ -39,21 +42,28 @@ public final class SkyboxConfigScreen extends Screen {
 		int columnWidth = Math.min(170, Math.max(120, (this.width - 32) / 2));
 		int left = (this.width - (2 * columnWidth + 16)) / 2;
 		int right = left + columnWidth + 16;
+		if (page == 1) {
+			initWeatherPage(columnWidth, left, right);
+			return;
+		}
 		int skyRows = 5;
 		int cloudHeadingY = TOP + skyRows * ROW + 3;
 		int globalY = cloudHeadingY + 13;
-		int middleY = globalY + CLOUD_ROW_GAP;
+		int vanillaY = globalY + CLOUD_ROW_GAP;
+		int middleY = vanillaY + CLOUD_ROW_GAP;
 		int upperY = middleY + CLOUD_ROW_GAP;
-		int cloudAppearanceY = upperY + CONTROL_HEIGHT + 5;
+		int cloudAppearanceY = upperY + CLOUD_ROW_GAP;
 		int cloudAppearanceControlsY = cloudAppearanceY + 12;
 		int skyBottom = cloudAppearanceControlsY + CONTROL_HEIGHT + 2;
-		int auroraBottom = TOP + AURORA_ROWS * ROW;
+		int fogHeadingY = TOP + AURORA_ROWS * ROW + 3;
+		int fogY = fogHeadingY + 13;
+		int auroraBottom = fogY + CONTROL_HEIGHT + 2;
 		int contentBottom = Math.max(skyBottom, auroraBottom);
 		int footerY = Math.max(this.height - 24, contentBottom + 5);
 
 		// Background is a non-interactive widget so it is rendered behind all controls.
 		addRenderableWidget(new PanelBackground(this.width, footerY + 22, left, right, columnWidth,
-			cloudHeadingY, globalY, cloudAppearanceControlsY, footerY));
+			cloudHeadingY, globalY, cloudAppearanceControlsY, fogHeadingY, fogY, footerY));
 
 		addRenderableWidget(new StringWidget(8, 2, this.width - 16, 12, this.title, this.font));
 		addRenderableWidget(new StringWidget(left, 16, columnWidth, 10,
@@ -77,13 +87,17 @@ public final class SkyboxConfigScreen extends Screen {
 			"skybox-overhaul.config.stars", SkyboxConfig.starCount, 1500.0, 8000.0, "", 0, false,
 			v -> SkyboxConfig.starCount = (int) Math.round(v), false));
 
-		// CloudLayers owns two additional layers. Global and per-layer offsets are additive.
+		// Global offset moves every layer incl. the vanilla one; per-layer offsets are added on top of it.
 		addRenderableWidget(new StringWidget(left + 4, cloudHeadingY, columnWidth - 8, 10,
 			Component.translatable("skybox-overhaul.config.section.clouds"), this.font));
 		addRenderableWidget(new StyledSlider(left + 3, globalY, columnWidth - 6, CONTROL_HEIGHT,
 			"skybox-overhaul.config.cloud.global", SkyboxConfig.globalCloudHeightOffset,
 			-256.0, 256.0, " blocks", 0, false,
 			v -> SkyboxConfig.globalCloudHeightOffset = (float) Math.round(v), false));
+		addRenderableWidget(new StyledSlider(left + 3, vanillaY, columnWidth - 6, CONTROL_HEIGHT,
+			"skybox-overhaul.config.cloud.vanilla", SkyboxConfig.vanillaCloudLayerOffset,
+			-256.0, 256.0, " blocks", 0, false,
+			v -> SkyboxConfig.vanillaCloudLayerOffset = (float) Math.round(v), false));
 		int switchWidth = Math.min(88, columnWidth / 2 + 14);
 		int localSliderWidth = columnWidth - switchWidth - 10;
 		addRenderableWidget(toggle(left + 3, middleY, switchWidth, "skybox-overhaul.config.cloud.middle",
@@ -108,8 +122,8 @@ public final class SkyboxConfigScreen extends Screen {
 		// Global appearance controls affect vanilla clouds and both additional layers.
 		addRenderableWidget(new StringWidget(left + 4, cloudAppearanceY, columnWidth - 8, 10,
 			Component.translatable("skybox-overhaul.config.cloud.appearance"), this.font));
-		int appearanceSliderWidth = (columnWidth - 12) / 2;
 		int appearanceGap = 6;
+		int appearanceSliderWidth = (columnWidth - 12) / 2;
 		addRenderableWidget(new StyledSlider(left + 3, cloudAppearanceControlsY, appearanceSliderWidth,
 			CONTROL_HEIGHT, "skybox-overhaul.config.cloud.opacity", SkyboxConfig.cloudOpacity,
 			0.0, 1.0, "", 0, true, v -> SkyboxConfig.cloudOpacity = (float) v, false));
@@ -142,16 +156,91 @@ public final class SkyboxConfigScreen extends Screen {
 			"skybox-overhaul.config.aurora-frequency", SkyboxConfig.auroraFrequency, 0.0, 1.0,
 			"%", 0, true, v -> SkyboxConfig.auroraFrequency = (float) v, false), auroraOn);
 
-		int buttonWidth = Math.min(100, columnWidth - 4);
+		// Fog sits under the aurora options and stays active whatever the aurora switch says.
+		addRenderableWidget(new StringWidget(right + 4, fogHeadingY, columnWidth - 8, 10,
+			Component.translatable("skybox-overhaul.config.section.fog"), this.font));
+		addRenderableWidget(new StyledSlider(right + 3, fogY, columnWidth - 6, CONTROL_HEIGHT,
+			"skybox-overhaul.config.fog", SkyboxConfig.fogTransition, 0.0, 1.0,
+			"", 0, true, v -> SkyboxConfig.fogTransition = (float) v, false));
+
+		addFooter(columnWidth, footerY);
+	}
+
+	/** Page 2: events and weather. Every control is a plain slider or switch, no presets. */
+	private void initWeatherPage(int columnWidth, int left, int right) {
+		int mistHeadingY = TOP + 3 * ROW + 3;
+		int mistY = mistHeadingY + 13;
+		int mistBottom = mistY + ROW + CONTROL_HEIGHT + 2;
+		int cloudHeadingY = mistHeadingY; // storm clouds sit under the meteor controls, level with the fog box
+		int cloudY = cloudHeadingY + 13;
+		int cloudBottom = cloudY + CONTROL_HEIGHT + 2;
+		int footerY = Math.max(this.height - 24, Math.max(mistBottom, cloudBottom) + 5);
+
+		addRenderableWidget(new WeatherPanels(this.width, footerY + 22, left, right, columnWidth, footerY,
+			mistHeadingY, mistBottom, cloudHeadingY, cloudBottom));
+		addRenderableWidget(new StringWidget(8, 2, this.width - 16, 12, this.title, this.font));
+		addRenderableWidget(new StringWidget(left, 16, columnWidth, 10,
+			Component.translatable("skybox-overhaul.config.section.meteors"), this.font));
+		addRenderableWidget(new StringWidget(right, 16, columnWidth, 10,
+			Component.translatable("skybox-overhaul.config.section.weather"), this.font));
+
+		// Meteor showers: switch + how often (every N-th day) + how strong.
+		boolean showersOn = SkyboxConfig.meteorShowerEnabled;
+		addRenderableWidget(toggle(left, TOP, columnWidth, "skybox-overhaul.config.meteors",
+			() -> SkyboxConfig.meteorShowerEnabled, v -> SkyboxConfig.meteorShowerEnabled = v, this::rebuildWidgets));
+		addAurora(new StyledSlider(left, TOP + ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.meteor-days", SkyboxConfig.meteorShowerEveryDays, 2.0, 30.0,
+			"", 0, false, v -> SkyboxConfig.meteorShowerEveryDays = (int) Math.round(v), false), showersOn);
+		addAurora(new StyledSlider(left, TOP + 2 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.meteor-intensity", SkyboxConfig.meteorShowerIntensity, 0.0, 1.0,
+			"", 0, true, v -> SkyboxConfig.meteorShowerIntensity = (float) v, false), showersOn);
+
+		// Storm clouds: how far the sky closes over in rain (overcast) and thunder (almost solid). 0 = off.
+		addRenderableWidget(new StringWidget(left + 4, cloudHeadingY, columnWidth - 8, 10,
+			Component.translatable("skybox-overhaul.config.section.storm-clouds"), this.font));
+		addRenderableWidget(new StyledSlider(left + 3, cloudY, columnWidth - 6, CONTROL_HEIGHT,
+			"skybox-overhaul.config.storm-clouds", SkyboxConfig.stormClouds, 0.0, 1.0,
+			"", 0, true, v -> SkyboxConfig.stormClouds = (float) v, false));
+
+		// Far storms: silent flashes on the horizon while it rains.
+		boolean stormsOn = SkyboxConfig.distantStormEnabled;
+		addRenderableWidget(toggle(right, TOP, columnWidth, "skybox-overhaul.config.storm",
+			() -> SkyboxConfig.distantStormEnabled, v -> SkyboxConfig.distantStormEnabled = v, this::rebuildWidgets));
+		addAurora(new StyledSlider(right, TOP + ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.storm-frequency", SkyboxConfig.distantStormFrequency, 0.0, 1.0,
+			"", 0, true, v -> SkyboxConfig.distantStormFrequency = (float) v, false), stormsOn);
+		addAurora(new StyledSlider(right, TOP + 2 * ROW, columnWidth, CONTROL_HEIGHT,
+			"skybox-overhaul.config.storm-brightness", SkyboxConfig.distantStormBrightness, 0.0, 1.0,
+			"", 0, true, v -> SkyboxConfig.distantStormBrightness = (float) v, false), stormsOn);
+
+		// Morning fog: strength 0 = off; the second switch adds the after-rain mist.
+		addRenderableWidget(new StringWidget(right + 4, mistHeadingY, columnWidth - 8, 10,
+			Component.translatable("skybox-overhaul.config.section.mist"), this.font));
+		addRenderableWidget(new StyledSlider(right + 3, mistY, columnWidth - 6, CONTROL_HEIGHT,
+			"skybox-overhaul.config.mist", SkyboxConfig.morningFog, 0.0, 1.0,
+			"", 0, true, v -> SkyboxConfig.morningFog = (float) v, false));
+		addRenderableWidget(toggle(right + 3, mistY + ROW, columnWidth - 6, "skybox-overhaul.config.mist-rain",
+			() -> SkyboxConfig.morningFogAfterRain, v -> SkyboxConfig.morningFogAfterRain = v, () -> {}));
+
+		addFooter(columnWidth, footerY);
+	}
+
+	/** Reset | other page | Done. */
+	private void addFooter(int columnWidth, int footerY) {
 		int buttonGap = 6;
-		int buttonTotal = buttonWidth * 2 + buttonGap;
-		int buttonLeft = (this.width - buttonTotal) / 2;
+		int buttonWidth = Math.min(100, Math.min(columnWidth - 4, (this.width - 16 - 2 * buttonGap) / 3));
+		int buttonLeft = (this.width - (buttonWidth * 3 + buttonGap * 2)) / 2;
 		addRenderableWidget(new ActionControl(buttonLeft, footerY, buttonWidth, 19,
 			Component.translatable("skybox-overhaul.config.reset"), () -> {
 				SkyboxConfig.reset();
 				rebuildWidgets();
 			}, false));
-		addRenderableWidget(new ActionControl(buttonLeft + buttonWidth + buttonGap, footerY,
+		addRenderableWidget(new ActionControl(buttonLeft + buttonWidth + buttonGap, footerY, buttonWidth, 19,
+			Component.translatable(page == 0 ? "skybox-overhaul.config.page.weather" : "skybox-overhaul.config.page.sky"), () -> {
+				page = 1 - page;
+				rebuildWidgets();
+			}, false));
+		addRenderableWidget(new ActionControl(buttonLeft + 2 * (buttonWidth + buttonGap), footerY,
 			buttonWidth, 19, CommonComponents.GUI_DONE, this::onClose, true));
 	}
 
@@ -178,10 +267,13 @@ public final class SkyboxConfigScreen extends Screen {
 		private final int cloudHeadingY;
 		private final int globalY;
 		private final int cloudAppearanceControlsY;
+		private final int fogHeadingY;
+		private final int fogY;
 		private final int footerY;
 
 		PanelBackground(int screenWidth, int screenHeight, int left, int right, int columnWidth,
-				int cloudHeadingY, int globalY, int cloudAppearanceControlsY, int footerY) {
+				int cloudHeadingY, int globalY, int cloudAppearanceControlsY, int fogHeadingY, int fogY,
+				int footerY) {
 			super(0, 0, screenWidth, screenHeight, Component.empty());
 			this.left = left;
 			this.right = right;
@@ -189,6 +281,8 @@ public final class SkyboxConfigScreen extends Screen {
 			this.cloudHeadingY = cloudHeadingY;
 			this.globalY = globalY;
 			this.cloudAppearanceControlsY = cloudAppearanceControlsY;
+			this.fogHeadingY = fogHeadingY;
+			this.fogY = fogY;
 			this.footerY = footerY;
 			this.active = false;
 		}
@@ -201,11 +295,53 @@ public final class SkyboxConfigScreen extends Screen {
 			drawPanel(graphics, left + 1, cloudHeadingY - 3, left + columnWidth - 1,
 				cloudAppearanceControlsY + CONTROL_HEIGHT + 2);
 			drawPanel(graphics, left + 3, globalY - 1, left + columnWidth - 3, globalY + CONTROL_HEIGHT + 1);
+			drawPanel(graphics, right + 1, fogHeadingY - 3, right + columnWidth - 1, fogY + CONTROL_HEIGHT + 2);
 		}
 
 		private static void drawPanel(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2) {
 			graphics.fill(x1, y1, x2, y2, 0xC9121B2B);
 			graphics.outline(x1, y1, x2 - x1, y2 - y1, 0xFF34465F);
+		}
+
+		@Override
+		public void onClick(MouseButtonEvent event, boolean doubleClick) {}
+
+		@Override
+		protected void updateWidgetNarration(NarrationElementOutput narration) {}
+	}
+
+	/** Page 2 backdrop: the two column panels plus a box around the morning-fog and the storm-cloud controls. */
+	private static final class WeatherPanels extends AbstractWidget {
+		private final int left;
+		private final int right;
+		private final int columnWidth;
+		private final int footerY;
+		private final int mistHeadingY;
+		private final int mistBottom;
+		private final int cloudHeadingY;
+		private final int cloudBottom;
+
+		WeatherPanels(int screenWidth, int screenHeight, int left, int right, int columnWidth, int footerY,
+				int mistHeadingY, int mistBottom, int cloudHeadingY, int cloudBottom) {
+			super(0, 0, screenWidth, screenHeight, Component.empty());
+			this.left = left;
+			this.right = right;
+			this.columnWidth = columnWidth;
+			this.footerY = footerY;
+			this.mistHeadingY = mistHeadingY;
+			this.mistBottom = mistBottom;
+			this.cloudHeadingY = cloudHeadingY;
+			this.cloudBottom = cloudBottom;
+			this.active = false;
+		}
+
+		@Override
+		public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+			int panelBottom = footerY - 5;
+			PanelBackground.drawPanel(graphics, left - 5, 14, left + columnWidth + 5, panelBottom);
+			PanelBackground.drawPanel(graphics, right - 5, 14, right + columnWidth + 5, panelBottom);
+			PanelBackground.drawPanel(graphics, right + 1, mistHeadingY - 3, right + columnWidth - 1, mistBottom);
+			PanelBackground.drawPanel(graphics, left + 1, cloudHeadingY - 3, left + columnWidth - 1, cloudBottom);
 		}
 
 		@Override

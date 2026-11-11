@@ -31,6 +31,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import skybox.overhaul.client.cloud.CloudLayers;
 import skybox.overhaul.client.cloud.CloudLighting;
+import skybox.overhaul.client.cloud.CloudMotion;
 import skybox.overhaul.client.cloud.CloudTextureOverride;
 import skybox.overhaul.client.config.SkyboxConfig;
 import skybox.overhaul.client.render.SkyboxState;
@@ -52,8 +53,9 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
             at = @At("HEAD"), argsOnly = true
     )
     private long skybox$cloudSpeed(long gameTime) {
-        return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
-                ? gameTime : Math.round(gameTime * (double) SkyboxConfig.cloudSpeed);
+        if (CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)) return gameTime;
+        CloudMotion.seenTick(gameTime);
+        return CloudMotion.time(gameTime);
     }
 
     @ModifyVariable(
@@ -61,8 +63,9 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
             at = @At("HEAD"), argsOnly = true, ordinal = 1
     )
     private float skybox$cloudPartialTickSpeed(float partialTicks) {
-        return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
-                ? partialTicks : partialTicks * SkyboxConfig.cloudSpeed;
+        if (CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)) return partialTicks;
+        CloudMotion.seenPartial(partialTicks);
+        return CloudMotion.partial(partialTicks);
     }
 
     @Override
@@ -158,14 +161,13 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
         if (!CloudLayers.isAdditionalRenderer(self)) {
             Minecraft mc = Minecraft.getInstance();
             long worldGameTime = mc.level == null ? gameTime : mc.level.getGameTime();
-            long cloudGameTime = Math.round(worldGameTime * (double) SkyboxConfig.cloudSpeed);
             CloudLayers.renderAdditional(
                     color,
                     cloudStatus,
                     bottomY,
                     range,
                     cameraPosition,
-                    cloudGameTime,
+                    gameTime,
                     partialTicks,
                     worldGameTime
             );

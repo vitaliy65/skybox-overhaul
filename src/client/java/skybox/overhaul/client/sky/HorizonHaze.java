@@ -17,6 +17,12 @@ import org.joml.Vector4f;
 import skybox.overhaul.client.render.SkyboxPipelines;
 import skybox.overhaul.client.render.SkyboxState;
 import skybox.overhaul.client.sky.SkyPalette;
+import skybox.overhaul.client.config.SkyboxConfig;
+import skybox.overhaul.client.sky.FogMist;
+import skybox.overhaul.client.sky.DistantStorm;
+import skybox.overhaul.client.sky.GlowLayers;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 /**
  * Paints the whole vertical sky gradient ourselves, so vanilla's fog ramp (and the line it leaves at
@@ -33,12 +39,19 @@ public final class HorizonHaze implements AutoCloseable {
 	private static final float[] HAZE_DEG = {-30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40};
 	private static final int BASE_QUADS = SEGMENTS * (BASE_DEG.length - 1);
 	private static final int HAZE_QUADS = SEGMENTS * (HAZE_DEG.length - 1);
+    private static final int FLASH_COLUMNS = 36;
+    private static final float[] FLASH_DEG = {-8, 0, 1.5F, 3, 5, 7, 9.5F, 12, 15, 19, 24, 30};
+    private static final int FLASH_QUADS = FLASH_COLUMNS * (FLASH_DEG.length - 1);
+    private static final int FLASH_BASE_VERTEX = (BASE_QUADS + HAZE_QUADS) * 4;
+    private static final int ALL_QUADS = BASE_QUADS + HAZE_QUADS + FLASH_QUADS;
+    private static final float[] FLASH_RGB = {0.80F, 0.85F, 1.0F};
+    private static final float FLASH_MAX_ALPHA = 0.75F;
 
 	private final GpuBuffer buffer;
-	private final GpuBuffer indices = SkyboxPipelines.quadIndices(BASE_QUADS + HAZE_QUADS);
+	private final GpuBuffer indices = SkyboxPipelines.quadIndices(ALL_QUADS);
 
 	public HorizonHaze() {
-		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized((BASE_QUADS + HAZE_QUADS) * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
+		try (ByteBufferBuilder bb = ByteBufferBuilder.exactlySized(ALL_QUADS * 4 * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
 			BufferBuilder b = new BufferBuilder(bb, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
 			dome(b, BASE_DEG, e -> {
 				double t = Math.max(0.0, Math.min(1.0, (e - 55.0) / 34.0));
@@ -77,15 +90,14 @@ public final class HorizonHaze implements AutoCloseable {
 
 	/** Draws into vanilla's sky pass (26.3 hands the pass to the sky methods; a second pass cannot be opened inside it). */
 	public void render(RenderPass pass, int skyColor) {
-		if (!SkyboxState.valid) {
-			return;
-		}
-		float a = SkyboxState.rainBrightness; // fade to vanilla in rain
+		if (!SkyboxState.valid) return;
+		float a = SkyboxState.rainBrightness;
 		Vector4f fog = SkyboxState.FOG;
 		GpuBufferSlice base = transform(((skyColor >> 16) & 0xFF) / 255.0F, ((skyColor >> 8) & 0xFF) / 255.0F, (skyColor & 0xFF) / 255.0F, a);
-		float dawnHaze = a * (1.0F + SkyPalette.dawnStrength(SkyboxState.sunAngle) * 0.14F);
-		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, dawnHaze);
-
+		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, a);
+		float mist = Math.max(SkyPalette.dawnStrength(SkyboxState.sunAngle) * 0.35F, FogMist.current() * 0.30F) * a;
+		GpuBufferSlice mistSlice = mist > 0.01F ? transform(fog.x, fog.y, fog.z, mist) : null;
+		GpuBufferSlice[] flashes = flashSlices();
 		pass.setPipeline(RenderSystem.getCompiledPipeline(SkyboxPipelines.HAZE));
 		RenderSystem.bindDefaultUniforms(pass);
 		pass.setVertexBuffer(0, buffer.slice());
@@ -94,6 +106,33 @@ public final class HorizonHaze implements AutoCloseable {
 		pass.drawIndexed(BASE_QUADS * 6, 1, 0, 0, 0);
 		pass.setUniform("DynamicTransforms", haze);
 		pass.drawIndexed(HAZE_QUADS * 6, 1, 0, BASE_QUADS * 4, 0);
+		if (mistSlice != null) {
+			pass.setUniform("DynamicTransforms", mistSlice);
+			pass.drawIndexed(HAZE_QUADS * 6, 1, 0, BASE_QUADS * 4, 0);
+		}
+		for (GpuBufferSlice flash : flashes) {
+			pass.setUniform("DynamicTransforms", flash);
+			pass.drawIndexed(FLASH_QUADS * 6, 1, 0, FLASH_BASE_VERTEX, 0);
+		}
+	}
+
+	private static GpuBufferSlice[] flashSlices() {
+		ClientLevel level = Minecraft.getInstance().level;
+		float rain = SkyboxState.rainLevel;
+		if (!SkyboxConfig.distantStormEnabled || level == null || rain < 0.3F) return new GpuBufferSlice[0];
+		double ticks = level.getGameTime() + Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
+		float[] azimuth = new float[2], power = new float[2];
+		int count = DistantStorm.flashes(ticks, DistantStorm.chance(SkyboxConfig.distantStormFrequency, rain), azimuth, power);
+		float sunHeight = GlowLayers.sunElevationDeg(SkyboxState.sunAngle);
+		float dark = Math.max(0.0F, Math.min(1.0F, (10.0F - sunHeight) / 18.0F));
+		float brightness = SkyboxConfig.distantStormBrightness * (0.35F + 0.65F * dark) * FLASH_MAX_ALPHA;
+		GpuBufferSlice[] slices = new GpuBufferSlice[count];
+		for (int i = 0; i < count; i++) {
+			Matrix4f mv = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).rotateY(azimuth[i]);
+			slices[i] = RenderSystem.getDynamicUniforms().writeTransform(mv,
+				new Vector4f(FLASH_RGB[0], FLASH_RGB[1], FLASH_RGB[2], power[i] * brightness), new Vector3f(), new Matrix4f());
+		}
+		return slices;
 	}
 
 	@Override

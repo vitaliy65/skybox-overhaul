@@ -26,3 +26,12 @@
 5. HorizonHaze v1: слой тумана с плато и smootherstep под дальность прорисовки: линию убрал.
 6. HorizonHaze v2 (по замечанию «не как в жизни»): свой полный градиент, дымка плотнее всего у горизонта и спадает экспоненциально за ~20° (не проверено пользователем).
 7. TwilightGlow (v1.1.0): по просьбе «закат красивее и дальше»: 5 слоёв, высота до ~70°, венерин пояс; превью смоделировано в Python и осмотрено.
+
+
+## Port from 26.1 (2026-11-11)
+- Added settings/UI for fog transition, morning/after-rain mist, meteor showers, distant storms, storm cloud cover, and vanilla cloud height offset.
+- Added FogMist, DistantStorm, MeteorShower, CloudMotion logic and storm cloud textures.
+- Adapted sky haze / distant lightning to this version's rendering path; added storm cloud renderers to the version-specific cloud path.
+- Added meteor showers to NightSky while retaining the version-specific render-pass API.
+- Pure-Java self-checks pass: SkyboxConfig, SkyPalette, GlowLayers, BiomeSky, FogMist, DistantStorm, MeteorShower, CloudMotion, CloudLighting.
+- Full Gradle compile not run: Gradle wrapper cannot download Gradle 9.8.2 because services.gradle.org is unreachable in this environment.

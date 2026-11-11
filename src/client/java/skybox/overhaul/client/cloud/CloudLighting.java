@@ -63,6 +63,38 @@ public final class CloudLighting {
         return Float.intBitsToFloat(packAlphaAndLightingBits(argb, twilight, moonlight, lightning));
     }
 
+
+    public static float stormCap(float rain, float thunder) {
+        return (1.0F - 0.38F * clamp01(rain)) * (1.0F - 0.76F * clamp01(thunder));
+    }
+
+    public static int stormShade(int argb, float rain, float thunder) {
+        float red = (argb >>> 16) & 0xFF;
+        float green = (argb >>> 8) & 0xFF;
+        float blue = argb & 0xFF;
+        float luminance = (0.30F * red + 0.59F * green + 0.11F * blue) / 255.0F;
+        float cap = stormCap(rain, thunder);
+        if (luminance > cap) {
+            float scale = cap / luminance;
+            red *= scale; green *= scale; blue *= scale; luminance = cap;
+        }
+        float cool = 0.35F * clamp01(Math.max(rain, thunder));
+        float targetLuminance = (0.30F * 105.0F + 0.59F * 116.0F + 0.11F * 132.0F) / 255.0F;
+        float k = luminance / targetLuminance;
+        red += (105.0F * k - red) * cool;
+        green += (116.0F * k - green) * cool;
+        blue += (132.0F * k - blue) * cool;
+        return (argb & 0xFF000000) | (to255(red) << 16) | (to255(green) << 8) | to255(blue);
+    }
+
+    public static float[] stormCover(float rain, float thunder, float amount) {
+        float a = clamp01(amount);
+        return new float[] { a * 0.85F * smoothstep(0.10F, 0.85F, rain),
+                a * 0.92F * smoothstep(0.05F, 0.85F, thunder) };
+    }
+
+    private static int to255(float value) { return Math.max(0, Math.min(255, Math.round(value))); }
+
     public static int applyOpacity(int argb, float opacity) {
         int alpha = (argb >>> 24) & 0xFF;
         int adjustedAlpha = Math.round(alpha * clamp01(opacity));

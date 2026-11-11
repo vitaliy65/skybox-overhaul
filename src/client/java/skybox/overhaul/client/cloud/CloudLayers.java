@@ -24,6 +24,10 @@ public final class CloudLayers {
     private static final long UPPER_PHASE_OFFSET = 281L;
     private static final float MIDDLE_OPACITY = 0.58F;
     private static final float UPPER_OPACITY = 0.32F;
+    private static final float STORM_LOW_HEIGHT_OFFSET = 16.0F;
+    private static final float STORM_HIGH_HEIGHT_OFFSET = 32.0F;
+    private static final long STORM_LOW_PHASE_OFFSET = 53L;
+    private static final long STORM_HIGH_PHASE_OFFSET = 211L;
 
     private static final CloudLayerRenderer MIDDLE = new CloudLayerRenderer(
             "middle_layer",
@@ -33,6 +37,10 @@ public final class CloudLayers {
             "upper_layer",
             "textures/environment/clouds_layer_3.png"
     );
+    private static final CloudLayerRenderer STORM_LOW = new CloudLayerRenderer(
+            "storm_low", "textures/environment/clouds_storm_1.png");
+    private static final CloudLayerRenderer STORM_HIGH = new CloudLayerRenderer(
+            "storm_high", "textures/environment/clouds_storm_2.png");
 
     private static boolean registered;
     private static long lastWeatherTick = Long.MIN_VALUE;
@@ -40,6 +48,8 @@ public final class CloudLayers {
     private static double middleWindZ;
     private static double upperWindX;
     private static double upperWindZ;
+    private static boolean stormLowVisible;
+    private static boolean stormHighVisible;
 
     public static void register() {
         if (registered) {
@@ -48,11 +58,13 @@ public final class CloudLayers {
 
         ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(MIDDLE.listenerId(), MIDDLE);
         ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(UPPER.listenerId(), UPPER);
+        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(STORM_LOW.listenerId(), STORM_LOW);
+        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(STORM_HIGH.listenerId(), STORM_HIGH);
         registered = true;
     }
 
     public static boolean isAdditionalRenderer(CloudRenderer renderer) {
-        return renderer == MIDDLE || renderer == UPPER;
+        return renderer == MIDDLE || renderer == UPPER || renderer == STORM_LOW || renderer == STORM_HIGH;
     }
 
     public static void renderAdditional(
@@ -66,11 +78,24 @@ public final class CloudLayers {
             long worldGameTime
     ) {
         float rain = clamp01(SkyboxState.rainLevel);
-        int rainTintedColor = tintForRain(color, rain);
+        float thunder = clamp01(SkyboxState.thunderLevel);
+        int rainTintedColor = CloudLighting.stormShade(color, rain, thunder);
+        float[] cover = CloudLighting.stormCover(rain, thunder, SkyboxConfig.stormClouds);
 
         // Integrate wind over elapsed ticks instead of multiplying total world time by current
         // rain strength. That prevents a visible cloud-pattern jump when rain starts or stops.
         updateWeatherDrift(worldGameTime, rain);
+
+        stormLowVisible = cover[0] > 0.01F;
+        stormHighVisible = cover[1] > 0.01F;
+        if (stormLowVisible) STORM_LOW.prepare(
+                applyOpacity(rainTintedColor, cover[0]), cloudStatus,
+                bottomY + STORM_LOW_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset,
+                range, cameraPosition, gameTime + STORM_LOW_PHASE_OFFSET, partialTicks);
+        if (stormHighVisible) STORM_HIGH.prepare(
+                applyOpacity(rainTintedColor, cover[1]), cloudStatus,
+                bottomY + STORM_HIGH_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset,
+                range, cameraPosition, gameTime + STORM_HIGH_PHASE_OFFSET, partialTicks);
 
         if (SkyboxConfig.middleCloudLayerEnabled) MIDDLE.prepare(
                 applyOpacity(rainTintedColor, MIDDLE_OPACITY + 0.16F * rain),
@@ -78,7 +103,7 @@ public final class CloudLayers {
                 bottomY + MIDDLE_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.middleCloudLayerOffset,
                 range,
                 cameraPosition.add(0.0D, 0.0D, middleWindZ),
-                gameTime + Math.round(MIDDLE_PHASE_OFFSET * SkyboxConfig.cloudSpeed),
+                gameTime + MIDDLE_PHASE_OFFSET,
                 partialTicks
         );
 
@@ -88,7 +113,7 @@ public final class CloudLayers {
                 bottomY + UPPER_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.upperCloudLayerOffset,
                 range,
                 cameraPosition.add(upperWindX, 0.0D, upperWindZ),
-                gameTime + Math.round(UPPER_PHASE_OFFSET * SkyboxConfig.cloudSpeed),
+                gameTime + UPPER_PHASE_OFFSET,
                 partialTicks
         );
     }
@@ -100,14 +125,18 @@ public final class CloudLayers {
      */
     public static void drawAdditional(CloudStatus cloudStatus, RenderPass renderPass) {
         if (SkyboxConfig.upperCloudLayerEnabled) UPPER.render(cloudStatus, renderPass);
+        if (stormHighVisible) STORM_HIGH.render(cloudStatus, renderPass);
         if (SkyboxConfig.middleCloudLayerEnabled) MIDDLE.render(cloudStatus, renderPass);
+        if (stormLowVisible) STORM_LOW.render(cloudStatus, renderPass);
     }
 
     /** Same, for improved-transparency (OIT) frames; one call per OIT stage. */
     public static void drawAdditionalOit(CloudStatus cloudStatus, OitStage stage, GpuTextureView mainDepth,
                                          OitRenderPassProvider.Parameters params) {
         if (SkyboxConfig.upperCloudLayerEnabled) UPPER.renderOit(cloudStatus, stage, mainDepth, params);
+        if (stormHighVisible) STORM_HIGH.renderOit(cloudStatus, stage, mainDepth, params);
         if (SkyboxConfig.middleCloudLayerEnabled) MIDDLE.renderOit(cloudStatus, stage, mainDepth, params);
+        if (stormLowVisible) STORM_LOW.renderOit(cloudStatus, stage, mainDepth, params);
     }
 
     private static void updateWeatherDrift(long gameTime, float rain) {
@@ -162,18 +191,25 @@ public final class CloudLayers {
     }
 
     public static void endFrame() {
+        CloudMotion.advance();
         MIDDLE.endFrame();
         UPPER.endFrame();
+        STORM_LOW.endFrame();
+        STORM_HIGH.endFrame();
     }
 
     public static void close() {
         MIDDLE.close();
         UPPER.close();
+        STORM_LOW.close();
+        STORM_HIGH.close();
         lastWeatherTick = Long.MIN_VALUE;
         previousRain = 0.0F;
         middleWindZ = 0.0D;
         upperWindX = 0.0D;
         upperWindZ = 0.0D;
+        stormLowVisible = false;
+        stormHighVisible = false;
     }
 
     private CloudLayers() {

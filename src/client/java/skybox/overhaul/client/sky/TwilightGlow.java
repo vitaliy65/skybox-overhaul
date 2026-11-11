@@ -24,6 +24,8 @@ import skybox.overhaul.client.render.SkyboxState;
 public final class TwilightGlow implements AutoCloseable {
 	private static final float R = 100.0F;
 	private static final int LAYERS = GlowLayers.ALL.length;
+	/** Morning visibility per layer (gold, orange, crimson, violet, Belt of Venus). */
+	private static final float[] MORNING = {0.30F, 0.30F, 0.85F, 0.85F, 1.0F};
 
 	private final GpuBuffer buffer;
 	private final GpuBuffer indices;
@@ -82,7 +84,7 @@ public final class TwilightGlow implements AutoCloseable {
 		boolean west = GlowLayers.sunInWest(SkyboxState.sunAngle) != GlowLayers.FLIP_SIDE;
 		Matrix4f mv = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).rotateY(west ? (float) Math.PI : 0.0F);
 		for (int i = 0; i < LAYERS; i++) {
-			float w = GlowLayers.weight(GlowLayers.ALL[i], elev) * rain;
+			float w = GlowLayers.weight(GlowLayers.ALL[i], elev) * rain * (GlowLayers.sunInWest(SkyboxState.sunAngle) ? 1.0F : MORNING[i]);
 			if (w > 0.002F) {
 				slices[i] = RenderSystem.getDynamicUniforms().writeTransform(mv, new Vector4f(1.0F, 1.0F, 1.0F, w), new Vector3f(), new Matrix4f());
 				any = true;

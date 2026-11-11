@@ -11,6 +11,12 @@ public final class SkyboxState {
 	public static float sunAngle;
 	/** Actual weather strength: 0 = clear, 1 = full rain. */
 	public static float rainLevel;
+	/** Thunder strength for storm cloud layers. */
+	public static float thunderLevel;
+	/** World time used by weather transitions. */
+	public static long gameTime;
+	/** Whether the current dimension has a normal sky. */
+	public static boolean skyboxActive;
 	/** 0..1 short-lived lightning flash intensity for the current frame. */
 	public static float lightningFlash;
 	public static boolean valid;

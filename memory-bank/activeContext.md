@@ -84,3 +84,12 @@ v1.2.0: конфиг через Mod Menu (`SkyboxConfig` + `SkyboxConfigScreen`)
 
 ## Learnings & Insights
 Полоса зависит от дальности прорисовки, а не от skyEnd. Превью неба удобно считать в Python (формулы те же, что в `GlowLayers`) и смотреть картинкой перед правкой Java.
+
+
+## Port from 26.1 (2026-11-11)
+- Added settings/UI for fog transition, morning/after-rain mist, meteor showers, distant storms, storm cloud cover, and vanilla cloud height offset.
+- Added FogMist, DistantStorm, MeteorShower, CloudMotion logic and storm cloud textures.
+- Adapted sky haze / distant lightning to this version's rendering path; added storm cloud renderers to the version-specific cloud path.
+- Added meteor showers to NightSky while retaining the version-specific render-pass API.
+- Pure-Java self-checks pass: SkyboxConfig, SkyPalette, GlowLayers, BiomeSky, FogMist, DistantStorm, MeteorShower, CloudMotion, CloudLighting.
+- Full Gradle compile not run: Gradle wrapper cannot download Gradle 9.8.2 because services.gradle.org is unreachable in this environment.

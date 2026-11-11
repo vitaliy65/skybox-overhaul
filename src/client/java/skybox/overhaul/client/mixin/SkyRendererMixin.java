@@ -23,6 +23,7 @@ import skybox.overhaul.client.render.SkyboxState;
 import skybox.overhaul.client.sky.BiomeGroups;
 import skybox.overhaul.client.sky.BiomeSky;
 import skybox.overhaul.client.sky.HorizonHaze;
+import skybox.overhaul.client.sky.FogMist;
 import skybox.overhaul.client.sky.SkyPalette;
 import skybox.overhaul.client.sky.TwilightGlow;
 
@@ -88,6 +89,8 @@ public class SkyRendererMixin {
 		ClientLevel level = mc.level;
 		if (level == null) {
 			SkyboxState.lightningFlash = 0.0F;
+			SkyboxState.skyboxActive = false;
+			FogMist.clear();
 			skybox$zenith = vanilla;
 			return skyColor;
 		}
@@ -95,8 +98,13 @@ public class SkyRendererMixin {
 		float rain = level.getRainLevel(partialTicks);
 		float sunAngle = mc.gameRenderer.mainCamera().attributeProbe().getValue(EnvironmentAttributes.SUN_ANGLE, partialTicks) * ((float) Math.PI / 180.0F);
 		SkyboxState.rainLevel = rain;
+		SkyboxState.thunderLevel = level.getThunderLevel(partialTicks);
+		SkyboxState.gameTime = level.getGameTime();
+		SkyboxState.skyboxActive = level.dimensionType().hasSkyLight();
 		SkyboxState.rainBrightness = 1.0F - rain;
 		SkyboxState.sunAngle = sunAngle;
+		if (SkyboxState.skyboxActive) FogMist.strength(sunAngle, SkyboxState.gameTime, rain);
+		else FogMist.clear();
 		SkyboxState.lightningFlash = CloudLighting.lightningStrength(
 				((ClientLevelAccessor) (Object) level).skybox$getSkyFlashTime());
 		if (mc.player != null) {

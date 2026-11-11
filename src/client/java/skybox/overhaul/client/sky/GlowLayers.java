@@ -20,7 +20,7 @@ public final class GlowLayers {
 	public static final Layer[] ALL = {
 		// gold core, hugging the sun: hot yellow-orange
 		new Layer(40, false, new float[]{-10, 1, 16},
-			new float[]{-10, -1, 3, 10, 24}, new int[]{0xFFC030, 0xFFD040, 0xFFC838, 0xFFB030, 0xFF9A30}, new float[]{0, 0.95F, 0.85F, 0.55F, 0}),
+			new float[]{-10, -1, 3, 10, 24}, new int[]{0xFFD040, 0xFFC030, 0xFFC838, 0xFFB030, 0xFF9A30}, new float[]{0, 0.95F, 0.85F, 0.55F, 0}),
 		// deep orange wash, wider and taller
 		new Layer(80, false, new float[]{-11, -1, 11},
 			new float[]{-10, 0, 8, 18, 38}, new int[]{0xFF6A00, 0xFF6A00, 0xFF5E10, 0xFF5028, 0xF03C48}, new float[]{0, 0.90F, 0.78F, 0.60F, 0}),
