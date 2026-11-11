@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import skybox.overhaul.client.CloudLayers;
+import skybox.overhaul.client.cloud.CloudLayers;
 
 @Mixin(LevelRenderer.class)
 public abstract class LevelRendererMixin {

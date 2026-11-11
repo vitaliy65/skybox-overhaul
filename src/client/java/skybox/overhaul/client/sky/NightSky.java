@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.sky;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
@@ -28,6 +28,8 @@ import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+import skybox.overhaul.client.SkyboxPipelines;
+import skybox.overhaul.client.config.SkyboxConfig;
 
 /**
  * Replacement for vanilla renderStars: star positions from vanilla's RNG stream (the first N stars are the same for any N), square pixel stars,

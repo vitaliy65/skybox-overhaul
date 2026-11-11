@@ -1,4 +1,6 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.sky;
+
+import skybox.overhaul.client.config.SkyboxConfig;
 
 /**
  * Sun height + solar side -> sky colours. s = sin(sun elevation) = cos(vanilla sun angle):
@@ -45,13 +47,15 @@ public final class SkyPalette {
 		float s = clamp((float) Math.cos(sunAngleRad), -1.0F, 1.0F);
 		if (Math.sin(sunAngleRad) > 0.0F) {
 			// Compress the effective solar elevation around the horizon: warm colours start earlier
-			// and the orange-to-violet afterglow remains until the sun is farther below the horizon.
-			if (s < 0.50F) s *= 0.90F;
+			// and the orange-to-violet afterglow lasts longer. The warp fades to 1 at noon (s = 0.5 and up)
+			// and at midnight (s = -1), so there is no colour pop where it switches on or the day wraps.
+			s *= 1.0F - 0.10F * (1.0F - smoothstep(0.30F, 0.50F, s)) * smoothstep(-1.0F, -0.45F, s);
 			return sample(sunsetColors, s);
 		}
 
 		int normal = sample(sunsetColors, s);
-		float dawn = dawnStrength(sunAngleRad);
+		// No fade-out on the high side: dawn and normal palettes share the s >= 0.5 keys, so they meet there.
+		float dawn = smoothstep(-20.0F, -11.0F, (float) Math.toDegrees(Math.asin(s)));
 		return dawn <= 0.0F ? normal : mix(normal, sample(dawnColors, s), dawn);
 	}
 
@@ -91,10 +95,21 @@ public final class SkyPalette {
 		check(dawnStrength(sunrise) > 0.9F, "dawn mist around sunrise");
 		check(dawnStrength(sunset) == 0.0F, "no dawn mist at sunset");
 		check(sampleForTime(HORIZON, DAWN_HORIZON, sunrise) != sampleForTime(HORIZON, DAWN_HORIZON, sunset), "dawn differs from sunset");
+		float eps = 1e-4F; // no colour pops where the warp starts (s = 0.5) or the day wraps (midnight, noon)
+		for (float a : new float[] {(float) Math.PI, 0.0F, (float) Math.acos(0.5)}) {
+			check(maxDelta(sampleForTime(HORIZON, DAWN_HORIZON, a - eps), sampleForTime(HORIZON, DAWN_HORIZON, a + eps)) <= 2, "horizon pop at " + a);
+			check(maxDelta(sampleForTime(ZENITH, DAWN_ZENITH, a - eps), sampleForTime(ZENITH, DAWN_ZENITH, a + eps)) <= 2, "zenith pop at " + a);
+		}
 		for (float a = 0; a < 6.3F; a += 0.01F) {
 			check((sky(0x78A7FF, a, 0.0F) >>> 24) == 0xFF && (fog(0xC0D8FF, a, 0.3F) >>> 24) == 0xFF, "sweep " + a);
 		}
 		System.out.println("SkyPalette OK");
+	}
+
+	private static int maxDelta(int a, int b) {
+		int d = 0;
+		for (int shift = 16; shift >= 0; shift -= 8) d = Math.max(d, Math.abs(((a >> shift) & 0xFF) - ((b >> shift) & 0xFF)));
+		return d;
 	}
 
 	private static void check(boolean ok, String what) {

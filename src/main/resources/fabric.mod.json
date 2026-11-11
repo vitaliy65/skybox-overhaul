@@ -21,7 +21,7 @@
 			"skybox.overhaul.client.SkyboxOverhaulClient"
 		],
 		"modmenu": [
-			"skybox.overhaul.client.SkyboxModMenu"
+			"skybox.overhaul.client.config.SkyboxModMenu"
 		]
 	},
 	"depends": {

@@ -9,7 +9,7 @@ colourful and realistic:
 - **Soft horizon** with no seam between sky and fog.
 - **Twinkling coloured stars** of different sizes (same constellations as vanilla) and rare comets.
 
-Sources: `src/client/java/skybox/overhaul/client/`. Architecture and status: `memory-bank/`.
+Sources: `src/client/java/skybox/overhaul/client/` (`sky/`, `cloud/`, `config/`, `aurora/`, `mixin/`). Architecture and status: `memory-bank/`.
 
 ## Run
 

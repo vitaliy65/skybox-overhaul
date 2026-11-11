@@ -1,7 +1,11 @@
 # System Patterns
 
 ## Architecture Overview
-Всё в `src/client/java/skybox/overhaul/client/`. Миксины тонкие, логика в обычных классах.
+Всё в `src/client/java/skybox/overhaul/client/`. Миксины тонкие, логика в обычных классах. Пакеты:
+- `sky/`: `SkyPalette`, `GlowLayers`, `TwilightGlow`, `HorizonHaze`, `NightSky`
+- `cloud/`: `CloudLayers`, `CloudLayerRenderer`, `CloudLighting`, `CloudMotion`, `CloudTextureOverride`
+- `config/`: `SkyboxConfig`, `SkyboxConfigScreen`, `SkyboxModMenu`
+- `aurora/`, `mixin/`; в корне только `SkyboxOverhaulClient`, `SkyboxPipelines`, `SkyboxState`.
 
 | Файл | Роль |
 |---|---|

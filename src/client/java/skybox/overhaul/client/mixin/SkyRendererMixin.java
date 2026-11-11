@@ -14,13 +14,13 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import skybox.overhaul.client.CloudLighting;
-import skybox.overhaul.client.HorizonHaze;
-import skybox.overhaul.client.NightSky;
-import skybox.overhaul.client.SkyPalette;
-import skybox.overhaul.client.SkyboxConfig;
 import skybox.overhaul.client.SkyboxState;
-import skybox.overhaul.client.TwilightGlow;
+import skybox.overhaul.client.cloud.CloudLighting;
+import skybox.overhaul.client.config.SkyboxConfig;
+import skybox.overhaul.client.sky.HorizonHaze;
+import skybox.overhaul.client.sky.NightSky;
+import skybox.overhaul.client.sky.SkyPalette;
+import skybox.overhaul.client.sky.TwilightGlow;
 
 @Mixin(SkyRenderer.class)
 public class SkyRendererMixin {

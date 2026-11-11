@@ -6,13 +6,13 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
-import skybox.overhaul.client.SkyboxConfig;
-import skybox.overhaul.client.SkyboxPipelines;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import skybox.overhaul.client.SkyboxPipelines;
+import skybox.overhaul.client.config.SkyboxConfig;
 
 /**
  * Loads nearby aurora patches and fades each new patch in.

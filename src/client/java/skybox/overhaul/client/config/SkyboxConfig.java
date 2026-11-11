@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.config;
 
 import java.io.IOException;
 import java.io.Reader;

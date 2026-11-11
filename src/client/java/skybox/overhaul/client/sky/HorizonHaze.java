@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.sky;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
@@ -17,6 +17,8 @@ import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+import skybox.overhaul.client.SkyboxPipelines;
+import skybox.overhaul.client.SkyboxState;
 
 /**
  * Paints the whole vertical sky gradient ourselves, so vanilla's fog ramp (and the line it leaves at
@@ -81,7 +83,9 @@ public final class HorizonHaze implements AutoCloseable {
 		float a = SkyboxState.rainBrightness; // fade to vanilla in rain
 		Vector4f fog = SkyboxState.FOG;
 		GpuBufferSlice base = transform(((skyColor >> 16) & 0xFF) / 255.0F, ((skyColor >> 8) & 0xFF) / 255.0F, (skyColor & 0xFF) / 255.0F, a);
-		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, Math.min(1.0F, a * (1.0F + SkyPalette.dawnStrength(SkyboxState.sunAngle) * 0.14F)));
+		GpuBufferSlice haze = transform(fog.x, fog.y, fog.z, a);
+		float mist = SkyPalette.dawnStrength(SkyboxState.sunAngle) * a * 0.35F; // morning mist: second haze pass lifts alpha where the first fades
+		GpuBufferSlice mistSlice = mist > 0.01F ? transform(fog.x, fog.y, fog.z, mist) : null;
 
 		GpuTextureView color = Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
 		GpuTextureView depth = Minecraft.getInstance().getMainRenderTarget().getDepthTextureView();
@@ -97,6 +101,10 @@ public final class HorizonHaze implements AutoCloseable {
 			pass.drawIndexed(0, 0, BASE_QUADS * 6, 1);
 			pass.setUniform("DynamicTransforms", haze);
 			pass.drawIndexed(BASE_QUADS * 4, 0, HAZE_QUADS * 6, 1);
+			if (mistSlice != null) {
+				pass.setUniform("DynamicTransforms", mistSlice);
+				pass.drawIndexed(BASE_QUADS * 4, 0, HAZE_QUADS * 6, 1);
+			}
 		}
 	}
 

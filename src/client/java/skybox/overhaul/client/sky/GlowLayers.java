@@ -1,4 +1,6 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.sky;
+
+import skybox.overhaul.client.config.SkyboxConfig;
 
 /**
  * Pure-Java data + maths for the twilight glow (no Minecraft imports, so it self-checks:

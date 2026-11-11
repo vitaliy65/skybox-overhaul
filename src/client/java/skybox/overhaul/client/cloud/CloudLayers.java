@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.cloud;
 
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.minecraft.client.CloudStatus;
@@ -6,6 +6,8 @@ import net.minecraft.client.renderer.CloudRenderer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.world.phys.Vec3;
+import skybox.overhaul.client.SkyboxState;
+import skybox.overhaul.client.config.SkyboxConfig;
 
 /**
  * Two extra vanilla CloudRenderer instances with independent masks and subtle weather response.
@@ -71,7 +73,7 @@ public final class CloudLayers {
                 bottomY + MIDDLE_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.middleCloudLayerOffset,
                 range,
                 cameraPosition.add(0.0D, 0.0D, middleWindZ),
-                gameTime + Math.round(MIDDLE_PHASE_OFFSET * SkyboxConfig.cloudSpeed),
+                gameTime + MIDDLE_PHASE_OFFSET,
                 partialTicks
         );
         if (SkyboxConfig.upperCloudLayerEnabled) UPPER.render(
@@ -80,7 +82,7 @@ public final class CloudLayers {
                 bottomY + UPPER_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.upperCloudLayerOffset,
                 range,
                 cameraPosition.add(upperWindX, 0.0D, upperWindZ),
-                gameTime + Math.round(UPPER_PHASE_OFFSET * SkyboxConfig.cloudSpeed),
+                gameTime + UPPER_PHASE_OFFSET,
                 partialTicks
         );
     }
@@ -137,6 +139,7 @@ public final class CloudLayers {
     }
 
     public static void endFrame() {
+        CloudMotion.advance();
         MIDDLE.endFrame();
         UPPER.endFrame();
     }

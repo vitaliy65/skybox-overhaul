@@ -5,7 +5,7 @@ Java 25, Fabric Loom `net.fabricmc.fabric-loom` `1.19-SNAPSHOT`, Fabric Loader 0
 
 ## Development Setup
 `./gradlew runClient`. Source sets разделены (`splitEnvironmentSourceSets`): `src/main` (общий, почти пустой), `src/client` (весь код). Конфиг миксинов: `src/client/resources/skybox-overhaul.client.mixins.json`.
-Самопроверки (чистая Java): скомпилировать `SkyPalette`, `GlowLayers`, `SkyboxConfig` вместе и запустить каждый `java -ea -cp out skybox.overhaul.client.<Имя>` (печатают `... OK`). Одиночный `java -ea X.java` не работает на JDK < 22, т.к. классы зависят друг от друга.
+Самопроверки (чистая Java): скомпилировать `sky/SkyPalette`, `sky/GlowLayers`, `config/SkyboxConfig`, `cloud/CloudLighting`, `cloud/CloudMotion` вместе и запустить каждый `java -ea -cp out skybox.overhaul.client.<пакет>.<Имя>` (например `sky.SkyPalette`) (печатают `... OK`). Одиночный `java -ea X.java` не работает на JDK < 22, т.к. классы зависят друг от друга.
 
 ## Technical Constraints
 - В среде Claude нет доступа к Maven Fabric/Mojang: **код мода ни разу не компилировался и не запускался Claude**. Проверяет только пользователь.

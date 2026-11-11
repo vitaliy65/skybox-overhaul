@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import skybox.overhaul.client.SkyboxConfig;
+import skybox.overhaul.client.config.SkyboxConfig;
 
 /** Sparse aurora made from vertical prisms on an eight-direction square grid. */
 public final class AuroraRibbon {

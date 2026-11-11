@@ -1,4 +1,4 @@
-package skybox.overhaul.client;
+package skybox.overhaul.client.sky;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
@@ -16,6 +16,8 @@ import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+import skybox.overhaul.client.SkyboxPipelines;
+import skybox.overhaul.client.SkyboxState;
 
 /**
  * Sunrise / sunset glow that actually fills the sky. Static mesh of {@link GlowLayers} (vertex colours baked
@@ -25,6 +27,8 @@ import org.joml.Vector4f;
 public final class TwilightGlow implements AutoCloseable {
 	private static final float R = 100.0F;
 	private static final int LAYERS = GlowLayers.ALL.length;
+	/** Morning visibility per layer (gold, orange, crimson, violet, Belt of Venus): rose-blue dawn, amber stays for dusk. */
+	private static final float[] MORNING = {0.30F, 0.30F, 0.85F, 0.85F, 1.0F};
 
 	private final GpuBuffer buffer;
 	private final int[] baseVertex = new int[LAYERS];
@@ -80,7 +84,7 @@ public final class TwilightGlow implements AutoCloseable {
 		boolean west = GlowLayers.sunInWest(SkyboxState.sunAngle) != GlowLayers.FLIP_SIDE;
 		Matrix4f mv = new Matrix4f(RenderSystem.getModelViewMatrix()).rotateY(west ? (float) Math.PI : 0.0F);
 		for (int i = 0; i < LAYERS; i++) {
-			float w = GlowLayers.weight(GlowLayers.ALL[i], elev) * rain;
+			float w = GlowLayers.weight(GlowLayers.ALL[i], elev) * rain * (GlowLayers.sunInWest(SkyboxState.sunAngle) ? 1.0F : MORNING[i]);
 			if (w > 0.002F) {
 				slices[i] = RenderSystem.getDynamicUniforms().writeTransform(mv, new Vector4f(1.0F, 1.0F, 1.0F, w), new Vector3f(), new Matrix4f());
 				any = true;

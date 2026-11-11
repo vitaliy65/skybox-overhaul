@@ -7,6 +7,9 @@ import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.ResourcePackActivationType;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.resources.Identifier;
+import skybox.overhaul.client.aurora.AuroraRenderer;
+import skybox.overhaul.client.config.SkyboxConfig;
+import skybox.overhaul.client.sky.NightSky;
 
 public class SkyboxOverhaulClient implements ClientModInitializer {
 	public static final Path CONFIG = FabricLoader.getInstance().getConfigDir().resolve("skybox-overhaul.properties");
