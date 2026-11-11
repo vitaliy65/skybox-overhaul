@@ -26,5 +26,20 @@
 	"skybox-overhaul.config.section.clouds": "Cloud layers",
 	"skybox-overhaul.config.section.fog": "Fog",
 	"skybox-overhaul.config.fog": "Soft fog edge: %s",
-	"skybox-overhaul.config.stars": "Stars: %s"
+	"skybox-overhaul.config.stars": "Stars: %s",
+	"skybox-overhaul.config.page.weather": "Weather >",
+	"skybox-overhaul.config.page.sky": "< Sky",
+	"skybox-overhaul.config.section.meteors": "Meteor showers",
+	"skybox-overhaul.config.section.weather": "Far storms",
+	"skybox-overhaul.config.section.mist": "Morning fog",
+	"skybox-overhaul.config.meteors": "Meteor showers",
+	"skybox-overhaul.config.meteor-days": "Every %s days",
+	"skybox-overhaul.config.meteor-intensity": "Intensity: %s",
+	"skybox-overhaul.config.storm": "Far storms in rain",
+	"skybox-overhaul.config.storm-frequency": "Flash rate: %s",
+	"skybox-overhaul.config.storm-brightness": "Flash brightness: %s",
+	"skybox-overhaul.config.mist": "Strength: %s",
+	"skybox-overhaul.config.mist-rain": "After rain too",
+	"skybox-overhaul.config.section.storm-clouds": "Storm clouds",
+	"skybox-overhaul.config.storm-clouds": "Cloud cover: %s"
 }

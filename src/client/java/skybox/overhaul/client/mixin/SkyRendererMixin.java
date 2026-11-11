@@ -72,9 +72,12 @@ public class SkyRendererMixin {
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void skybox$zenith(ClientLevel level, float partialTicks, Camera camera, SkyRenderState state, CallbackInfo ci) {
 		SkyboxState.rainLevel = level.getRainLevel(partialTicks);
+		SkyboxState.thunderLevel = level.getThunderLevel(partialTicks);
+		SkyboxState.gameTime = level.getGameTime();
 		SkyboxState.lightningFlash = CloudLighting.lightningStrength(
 			((ClientLevelAccessor) (Object) level).skybox$getSkyFlashTime());
-		if (state.skybox == Skybox.NONE || state.skybox == Skybox.END) {
+		SkyboxState.skyboxActive = state.skybox != Skybox.NONE && state.skybox != Skybox.END;
+		if (!SkyboxState.skyboxActive) {
 			return;
 		}
 		SkyboxState.rainBrightness = state.rainBrightness;

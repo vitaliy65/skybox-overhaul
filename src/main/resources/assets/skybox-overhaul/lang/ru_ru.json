@@ -26,5 +26,20 @@
 	"skybox-overhaul.config.section.clouds": "Облачные слои",
 	"skybox-overhaul.config.section.fog": "Туман",
 	"skybox-overhaul.config.fog": "Мягкий край тумана: %s",
-	"skybox-overhaul.config.stars": "Звёзды: %s"
+	"skybox-overhaul.config.stars": "Звёзды: %s",
+	"skybox-overhaul.config.page.weather": "Погода >",
+	"skybox-overhaul.config.page.sky": "< Небо",
+	"skybox-overhaul.config.section.meteors": "Метеорные потоки",
+	"skybox-overhaul.config.section.weather": "Далёкие грозы",
+	"skybox-overhaul.config.section.mist": "Утренний туман",
+	"skybox-overhaul.config.meteors": "Метеорные потоки",
+	"skybox-overhaul.config.meteor-days": "Каждые %s дн.",
+	"skybox-overhaul.config.meteor-intensity": "Интенсивность: %s",
+	"skybox-overhaul.config.storm": "Далёкие грозы в дождь",
+	"skybox-overhaul.config.storm-frequency": "Частота вспышек: %s",
+	"skybox-overhaul.config.storm-brightness": "Яркость вспышек: %s",
+	"skybox-overhaul.config.mist": "Сила: %s",
+	"skybox-overhaul.config.mist-rain": "И после дождя",
+	"skybox-overhaul.config.section.storm-clouds": "Грозовые тучи",
+	"skybox-overhaul.config.storm-clouds": "Облачность: %s"
 }

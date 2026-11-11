@@ -11,6 +11,12 @@ public final class SkyboxState {
 	public static float sunAngle;
 	/** Actual weather strength: 0 = clear, 1 = full rain. */
 	public static float rainLevel;
+	/** Thunderstorm strength: 0 = none, 1 = full thunder (clouds go much darker). */
+	public static float thunderLevel;
+	/** World clock in ticks, for time-based effects that must not depend on frame rate (morning fog). */
+	public static long gameTime;
+	/** False in dimensions without our sky (Nether, End, no sky): morning fog stays off there. */
+	public static boolean skyboxActive;
 	/** 0..1 pulse from vanilla lightning; zero when the player has hidden sky flashes. */
 	public static float lightningFlash;
 	public static boolean valid;

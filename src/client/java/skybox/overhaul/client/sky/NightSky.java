@@ -42,6 +42,11 @@ public final class NightSky implements AutoCloseable {
 	private static final float COMET_LIFE = 100.0F; // ticks (20 s) a comet flies, then it is gone; may span several slots
 	private static final float COMET_ARC = 2.4F;    // radians flown over its life (~137 degrees)
 	private static final int COMET_SLOTS_BACK = (int) (COMET_LIFE / COMET_SLOT) + 1; // older slots whose comet can still be alive
+	// Meteor shower nights: short shooting stars (the comet mesh, a faster flight) all leaving the radiant.
+	private static final long METEOR_SLOT = 20L;       // ticks: one launch roll per slot (1 s)
+	private static final float METEOR_LIFE = 30.0F;    // ticks (1.5 s) in flight
+	private static final float METEOR_ARC = 0.7F;      // radians flown over its life (~40 degrees)
+	private static final int METEOR_SLOTS_BACK = (int) Math.ceil(METEOR_LIFE / METEOR_SLOT) + 1;
 	private static final int[] TINTS = {0xB5C8FF, 0xFFFFFF, 0xFFF2C8, 0xFFC28A, 0xFF9A80}; // blue-white .. red
 
 	private record Star(int bucket, float[] v, int color) {}
@@ -57,6 +62,8 @@ public final class NightSky implements AutoCloseable {
 	private int starIndexCount;
 
 	private final Quaternionf cometOrient = new Quaternionf();
+	private float arcStart; // flight angle along the great circle = arcStart + p * arcLen, set by the last roll
+	private float arcLen;
 
 	public NightSky() {
 		Random r = new Random(99);
@@ -175,6 +182,7 @@ public final class NightSky implements AutoCloseable {
 	/**
 	 * Stateless: a comet is fully defined by its slot number (dice, launch tick, orientation), so sleeping, time skips
 	 * and reloads stay consistent. Returns launch tick offset inside the slot, or -1 when this slot has no comet.
+	 * On a shower night the chance goes up and the flight starts near the radiant instead of a random place.
 	 */
 	private float rollComet(long slot) {
 		SplittableRandom r = new SplittableRandom(slot * 0x9E3779B97F4A7C15L);
@@ -186,7 +194,39 @@ public final class NightSky implements AutoCloseable {
 		}
 		axis.normalize();
 		cometOrient.identity().rotateAxis((float) (r.nextDouble() * Math.PI * 2.0), axis.x, axis.y, axis.z);
-		return roll < SkyboxConfig.cometPercent ? start : -1.0F;
+		arcStart = -COMET_ARC / 2.0F;
+		arcLen = COMET_ARC;
+		float percent = SkyboxConfig.cometPercent;
+		if (showerSlot(slot * COMET_SLOT)) {
+			percent = Math.min(100.0F, percent * MeteorShower.cometBoost(SkyboxConfig.meteorShowerIntensity));
+			aimFromRadiant(r, slot * COMET_SLOT, (float) r.nextDouble() * 0.25F, COMET_ARC);
+		}
+		return roll < percent ? start : -1.0F;
+	}
+
+	/** Shooting star of a shower night; -1 when this slot launches nothing. Same stateless idea as {@link #rollComet}. */
+	private float rollMeteor(long slot) {
+		long tick = slot * METEOR_SLOT;
+		if (!showerSlot(tick)) {
+			return -1.0F;
+		}
+		SplittableRandom r = new SplittableRandom(slot * 0xC2B2AE3D27D4EB4FL + 17L);
+		int roll = r.nextInt(100);
+		float start = (float) (r.nextDouble() * METEOR_SLOT);
+		aimFromRadiant(r, tick, 0.04F + (float) r.nextDouble() * 0.4F, METEOR_ARC);
+		return roll < MeteorShower.meteorPercent(SkyboxConfig.meteorShowerIntensity) ? start : -1.0F;
+	}
+
+	private static boolean showerSlot(long tick) {
+		return MeteorShower.isShowerDay(tick, SkyboxConfig.meteorShowerEnabled, SkyboxConfig.meteorShowerEveryDays);
+	}
+
+	/** Orients the flight on a great circle that leaves the radiant of that day in a random direction. */
+	private void aimFromRadiant(SplittableRandom r, long tick, float from, float length) {
+		float[] b = MeteorShower.basis(Math.floorDiv(tick, MeteorShower.DAY_TICKS), r);
+		cometOrient.setFromNormalized(new Matrix3f(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8]));
+		arcStart = from;
+		arcLen = length;
 	}
 
 	private static float smooth(float x) {
@@ -202,6 +242,16 @@ public final class NightSky implements AutoCloseable {
 
 	private static GpuBufferSlice transform(Matrix4fStack mv, float alpha) {
 		return RenderSystem.getDynamicUniforms().writeTransform(mv, new Vector4f(1.0F, 1.0F, 1.0F, alpha), new Vector3f(), new Matrix4f());
+	}
+
+	/** Uniform for one comet/meteor at flight progress p (0..1), using the orientation + arc of the last roll. */
+	private GpuBufferSlice flightSlice(Matrix4fStack mv, float p, float alpha) {
+		mv.pushMatrix();
+		// great-circle flight; head moves toward +Z, so the tail (+X turned by 90 deg about Y) points to -Z, behind it
+		mv.rotate(cometOrient).rotateX(arcStart + p * arcLen).rotateY((float) (Math.PI / 2.0));
+		GpuBufferSlice slice = transform(mv, alpha);
+		mv.popMatrix();
+		return slice;
 	}
 
 	/** Called with the same pose vanilla renderStars gets (star rotation already applied). */
@@ -231,11 +281,20 @@ public final class NightSky implements AutoCloseable {
 					continue;
 				}
 				float fade = smooth(p / 0.3F) * smooth((1.0F - p) / 0.4F); // long smooth fade in and out
-				mv.pushMatrix();
-				// great-circle flight; head moves toward +Z, so the tail (+X turned by 90 deg about Y) points to -Z, behind it
-				mv.rotate(cometOrient).rotateX((p - 0.5F) * COMET_ARC).rotateY((float) (Math.PI / 2.0));
-				cometSlices.add(transform(mv, starBrightness * fade));
-				mv.popMatrix();
+				cometSlices.add(flightSlice(mv, p, starBrightness * fade));
+			}
+			long nowMeteor = Math.floorDiv((long) ticks, METEOR_SLOT);
+			for (long slot = nowMeteor; slot > nowMeteor - METEOR_SLOTS_BACK; slot--) {
+				float start = rollMeteor(slot);
+				if (start < 0.0F) {
+					continue;
+				}
+				float p = (float) ((ticks - slot * METEOR_SLOT - start) / METEOR_LIFE);
+				if (p < 0.0F || p >= 1.0F) {
+					continue;
+				}
+				float fade = smooth(p / 0.15F) * smooth((1.0F - p) / 0.5F); // flares up fast, dies out slowly
+				cometSlices.add(flightSlice(mv, p, starBrightness * fade));
 			}
 		}
 
