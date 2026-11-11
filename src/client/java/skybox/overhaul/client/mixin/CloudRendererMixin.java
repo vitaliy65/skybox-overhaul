@@ -22,6 +22,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import skybox.overhaul.client.cloud.CloudLayers;
 import skybox.overhaul.client.cloud.CloudLighting;
+import skybox.overhaul.client.cloud.CloudMotion;
 import skybox.overhaul.client.cloud.CloudTextureOverride;
 import skybox.overhaul.client.config.SkyboxConfig;
 import skybox.overhaul.client.render.SkyboxState;
@@ -33,6 +34,12 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
     private Identifier skybox$textureOverride;
 
     @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+    private float skybox$vanillaCloudHeight(float bottomY) {
+        if (CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)) return bottomY;
+        return bottomY + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.vanillaCloudLayerOffset;
+    }
+
+    @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private int skybox$cloudOpacity(int color) {
         return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
                 ? color : CloudLighting.applyOpacity(color, SkyboxConfig.cloudOpacity);
@@ -40,14 +47,16 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
 
     @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true)
     private long skybox$cloudSpeed(long gameTime) {
-        return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
-                ? gameTime : Math.round(gameTime * (double) SkyboxConfig.cloudSpeed);
+        if (CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)) return gameTime;
+        CloudMotion.seenTick(gameTime);
+        return CloudMotion.time(gameTime);
     }
 
     @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true, ordinal = 1)
     private float skybox$cloudPartialTickSpeed(float partialTicks) {
-        return CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)
-                ? partialTicks : partialTicks * SkyboxConfig.cloudSpeed;
+        if (CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)) return partialTicks;
+        CloudMotion.seenPartial(partialTicks);
+        return CloudMotion.partial(partialTicks);
     }
 
     @Override
@@ -129,14 +138,13 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
         if (!CloudLayers.isAdditionalRenderer(self)) {
             long worldGameTime = Minecraft.getInstance().level == null
                     ? gameTime : Minecraft.getInstance().level.getGameTime();
-            long cloudGameTime = Math.round(worldGameTime * (double) SkyboxConfig.cloudSpeed);
             CloudLayers.renderAdditional(
                     color,
                     cloudStatus,
-                    bottomY,
+                    bottomY - SkyboxConfig.globalCloudHeightOffset - SkyboxConfig.vanillaCloudLayerOffset,
                     range,
                     cameraPosition,
-                    cloudGameTime,
+                    gameTime,
                     partialTicks,
                     worldGameTime
             );

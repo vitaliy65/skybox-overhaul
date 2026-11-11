@@ -10,7 +10,7 @@ import skybox.overhaul.client.render.SkyboxState;
 import skybox.overhaul.client.config.SkyboxConfig;
 
 /**
- * Two extra vanilla CloudRenderer instances with independent masks and subtle weather response.
+ * Two extra vanilla CloudRenderer instances with independent masks; rain and thunder darken them like the vanilla layer.
  * Vanilla geometry, depth, fog and fast/fancy modes are retained.
  */
 public final class CloudLayers {
@@ -20,6 +20,12 @@ public final class CloudLayers {
     private static final long UPPER_PHASE_OFFSET = 281L;
     private static final float MIDDLE_OPACITY = 0.58F;
     private static final float UPPER_OPACITY = 0.32F;
+    // Dense storm layers (clouds_storm_1/2.png): fade in with rain / thunder so the sky closes over.
+    // They sit just above the vanilla layer, so they fill its gaps when seen from below.
+    private static final float STORM_LOW_HEIGHT_OFFSET = 16.0F;
+    private static final float STORM_HIGH_HEIGHT_OFFSET = 32.0F;
+    private static final long STORM_LOW_PHASE_OFFSET = 53L;
+    private static final long STORM_HIGH_PHASE_OFFSET = 211L;
 
     private static final CloudLayerRenderer MIDDLE = new CloudLayerRenderer(
             "middle_layer",
@@ -28,6 +34,15 @@ public final class CloudLayers {
     private static final CloudLayerRenderer UPPER = new CloudLayerRenderer(
             "upper_layer",
             "textures/environment/clouds_layer_3.png"
+    );
+
+    private static final CloudLayerRenderer STORM_LOW = new CloudLayerRenderer(
+            "storm_low",
+            "textures/environment/clouds_storm_1.png"
+    );
+    private static final CloudLayerRenderer STORM_HIGH = new CloudLayerRenderer(
+            "storm_high",
+            "textures/environment/clouds_storm_2.png"
     );
 
     private static boolean registered;
@@ -44,11 +59,13 @@ public final class CloudLayers {
 
         ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(MIDDLE.listenerId(), MIDDLE);
         ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(UPPER.listenerId(), UPPER);
+        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(STORM_LOW.listenerId(), STORM_LOW);
+        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(STORM_HIGH.listenerId(), STORM_HIGH);
         registered = true;
     }
 
     public static boolean isAdditionalRenderer(CloudRenderer renderer) {
-        return renderer == MIDDLE || renderer == UPPER;
+        return renderer == MIDDLE || renderer == UPPER || renderer == STORM_LOW || renderer == STORM_HIGH;
     }
 
     public static void renderAdditional(
@@ -62,27 +79,50 @@ public final class CloudLayers {
             long worldGameTime
     ) {
         float rain = clamp01(SkyboxState.rainLevel);
-        int rainTintedColor = tintForRain(color, rain);
+        // Rain AND thunder darken the extra layers like vanilla darkens its own: a brightness cap by weather strength,
+        // independent of what colour vanilla passed in (the old code only tinted by rain, never by thunder).
+        int rainTintedColor = CloudLighting.stormShade(color, rain, clamp01(SkyboxState.thunderLevel));
 
         // Integrate wind over elapsed ticks instead of multiplying total world time by current
         // rain strength. That prevents a visible cloud-pattern jump when rain starts or stops.
         updateWeatherDrift(worldGameTime, rain);
+        float thunder = clamp01(SkyboxState.thunderLevel);
+        float[] cover = CloudLighting.stormCover(rain, thunder, SkyboxConfig.stormClouds);
+        // Storm layers first (lowest to highest), the old layers keep their order after them.
+        if (cover[0] > 0.01F) STORM_LOW.render(
+                applyOpacity(rainTintedColor, cover[0]),
+                cloudStatus,
+                bottomY + STORM_LOW_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset,
+                range,
+                cameraPosition,
+                gameTime + STORM_LOW_PHASE_OFFSET,
+                partialTicks
+        );
+        if (cover[1] > 0.01F) STORM_HIGH.render(
+                applyOpacity(rainTintedColor, cover[1]),
+                cloudStatus,
+                bottomY + STORM_HIGH_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset,
+                range,
+                cameraPosition,
+                gameTime + STORM_HIGH_PHASE_OFFSET,
+                partialTicks
+        );
         if (SkyboxConfig.middleCloudLayerEnabled) MIDDLE.render(
-                applyOpacity(rainTintedColor, (MIDDLE_OPACITY + 0.16F * rain) * SkyboxConfig.cloudOpacity),
+                applyOpacity(rainTintedColor, MIDDLE_OPACITY + 0.16F * rain),
                 cloudStatus,
                 bottomY + MIDDLE_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.middleCloudLayerOffset,
                 range,
                 cameraPosition.add(0.0D, 0.0D, middleWindZ),
-                gameTime + Math.round(MIDDLE_PHASE_OFFSET * SkyboxConfig.cloudSpeed),
+                gameTime + MIDDLE_PHASE_OFFSET,
                 partialTicks
         );
         if (SkyboxConfig.upperCloudLayerEnabled) UPPER.render(
-                applyOpacity(rainTintedColor, (UPPER_OPACITY + 0.07F * rain) * SkyboxConfig.cloudOpacity),
+                applyOpacity(rainTintedColor, UPPER_OPACITY + 0.07F * rain),
                 cloudStatus,
                 bottomY + UPPER_HEIGHT_OFFSET + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.upperCloudLayerOffset,
                 range,
                 cameraPosition.add(upperWindX, 0.0D, upperWindZ),
-                gameTime + Math.round(UPPER_PHASE_OFFSET * SkyboxConfig.cloudSpeed),
+                gameTime + UPPER_PHASE_OFFSET,
                 partialTicks
         );
     }
@@ -107,27 +147,6 @@ public final class CloudLayers {
         previousRain = rain;
     }
 
-    /** Rain reduces the white daylight look and pushes the extra layers toward cool storm gray. */
-    private static int tintForRain(int argb, float rain) {
-        int alpha = (argb >>> 24) & 0xFF;
-        int red = (argb >>> 16) & 0xFF;
-        int green = (argb >>> 8) & 0xFF;
-        int blue = argb & 0xFF;
-        float amount = rain * 0.48F;
-        red = lerp(red, 105, amount);
-        green = lerp(green, 116, amount);
-        blue = lerp(blue, 132, amount);
-        float dim = 1.0F - rain * 0.20F;
-        red = Math.round(red * dim);
-        green = Math.round(green * dim);
-        blue = Math.round(blue * dim);
-        return (alpha << 24) | (red << 16) | (green << 8) | blue;
-    }
-
-    private static int lerp(int from, int to, float amount) {
-        return Math.max(0, Math.min(255, Math.round(from + (to - from) * amount)));
-    }
-
     private static int applyOpacity(int argb, float opacity) {
         int alpha = (argb >>> 24) & 0xFF;
         int adjustedAlpha = Math.round(alpha * clamp01(opacity));
@@ -139,13 +158,19 @@ public final class CloudLayers {
     }
 
     public static void endFrame() {
+        CloudMotion.advance();
+        CloudMotion.advance();
         MIDDLE.endFrame();
         UPPER.endFrame();
+        STORM_LOW.endFrame();
+        STORM_HIGH.endFrame();
     }
 
     public static void close() {
         MIDDLE.close();
         UPPER.close();
+        STORM_LOW.close();
+        STORM_HIGH.close();
         lastWeatherTick = Long.MIN_VALUE;
         previousRain = 0.0F;
         middleWindZ = 0.0D;

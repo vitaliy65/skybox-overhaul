@@ -19,6 +19,7 @@ import skybox.overhaul.client.render.SkyboxState;
 import skybox.overhaul.client.sky.BiomeGroups;
 import skybox.overhaul.client.sky.BiomeSky;
 import skybox.overhaul.client.sky.HorizonHaze;
+import skybox.overhaul.client.sky.FogMist;
 import skybox.overhaul.client.sky.SkyPalette;
 import skybox.overhaul.client.sky.TwilightGlow;
 
@@ -72,6 +73,9 @@ public class SkyRendererMixin {
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void skybox$zenith(ClientLevel level, float partialTicks, Camera camera, SkyRenderState state, CallbackInfo ci) {
 		SkyboxState.rainLevel = level.getRainLevel(partialTicks);
+		SkyboxState.thunderLevel = level.getThunderLevel(partialTicks);
+		SkyboxState.gameTime = level.getGameTime();
+		SkyboxState.skyboxActive = state.skybox != Skybox.NONE && state.skybox != Skybox.END;
 		SkyboxState.lightningFlash = CloudLighting.lightningStrength(
 			((ClientLevelAccessor) (Object) level).skybox$getSkyFlashTime());
 		Minecraft mc = Minecraft.getInstance();
@@ -79,10 +83,12 @@ public class SkyRendererMixin {
 			BiomeSky.update(BiomeGroups.of(level.getBiome(mc.player.blockPosition())));
 		}
 		if (state.skybox == Skybox.NONE || state.skybox == Skybox.END) {
+			FogMist.clear();
 			return;
 		}
 		SkyboxState.rainBrightness = state.rainBrightness;
 		SkyboxState.sunAngle = state.sunAngle;
+		FogMist.strength(SkyboxState.sunAngle, SkyboxState.gameTime, SkyboxState.rainLevel);
 		state.skyColor = SkyPalette.sky(state.skyColor, state.sunAngle, level.getRainLevel(partialTicks));
 	}
 }
