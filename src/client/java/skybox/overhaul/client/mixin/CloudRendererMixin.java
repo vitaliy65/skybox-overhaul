@@ -56,6 +56,13 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
         return CloudMotion.partial(partialTicks);
     }
 
+    // Vanilla layer height = vanilla bottomY + global offset + its own offset (the extra layers do the same in CloudLayers).
+    @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+    private float skybox$cloudHeight(float bottomY) {
+        if (CloudLayers.isAdditionalRenderer((CloudRenderer) (Object) this)) return bottomY;
+        return bottomY + SkyboxConfig.globalCloudHeightOffset + SkyboxConfig.vanillaCloudLayerOffset;
+    }
+
     @Override
     public void skybox$setTextureOverride(Identifier texture) {
         this.skybox$textureOverride = texture;
@@ -139,7 +146,9 @@ public abstract class CloudRendererMixin implements CloudTextureOverride {
             CloudLayers.renderAdditional(
                     color,
                     cloudStatus,
-                    bottomY,
+                    // TAIL sees the shifted bottomY: strip the global + vanilla offsets so extra layers stay relative to
+                    // the original height (CloudLayers adds the global offset itself, the vanilla one must not leak in).
+                    bottomY - SkyboxConfig.globalCloudHeightOffset - SkyboxConfig.vanillaCloudLayerOffset,
                     range,
                     cameraPosition,
                     gameTime,

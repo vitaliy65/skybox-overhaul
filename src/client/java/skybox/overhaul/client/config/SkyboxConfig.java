@@ -65,6 +65,8 @@ public final class SkyboxConfig {
 	public static float cloudSpeed = 1.0F;
 	/** Shared vertical adjustment for all CloudLayers-managed layers, in blocks (-256..256). */
 	public static float globalCloudHeightOffset = 0.0F;
+	/** Vertical adjustment of the original vanilla cloud layer, in blocks (-256..256); added to the global offset. */
+	public static float vanillaCloudLayerOffset = 0.0F;
 	/** Whether the additional middle cloud layer is rendered. */
 	public static boolean middleCloudLayerEnabled = true;
 	/** Per-layer vertical adjustment, in blocks (-256..256). */
@@ -103,6 +105,7 @@ public final class SkyboxConfig {
 		cloudOpacity = 1.0F;
 		cloudSpeed = 1.0F;
 		globalCloudHeightOffset = 0.0F;
+		vanillaCloudLayerOffset = 0.0F;
 		middleCloudLayerEnabled = true;
 		middleCloudLayerOffset = 0.0F;
 		upperCloudLayerEnabled = true;
@@ -127,6 +130,7 @@ public final class SkyboxConfig {
 		auroraBrightness = rangedNum(p, "auroraBrightness", auroraBrightness, 0.0F, 1.0F);
 		auroraSpeed = rangedNum(p, "auroraSpeed", auroraSpeed, 0.25F, 2.0F);
 		globalCloudHeightOffset = rangedNum(p, "globalCloudHeightOffset", globalCloudHeightOffset, -256.0F, 256.0F);
+		vanillaCloudLayerOffset = rangedNum(p, "vanillaCloudLayerOffset", vanillaCloudLayerOffset, -256.0F, 256.0F);
 		middleCloudLayerEnabled = bool(p, "middleCloudLayerEnabled", middleCloudLayerEnabled);
 		middleCloudLayerOffset = rangedNum(p, "middleCloudLayerOffset", middleCloudLayerOffset, -256.0F, 256.0F);
 		upperCloudLayerEnabled = bool(p, "upperCloudLayerEnabled", upperCloudLayerEnabled);
@@ -178,6 +182,7 @@ public final class SkyboxConfig {
 		p.setProperty("cloudOpacity", String.valueOf(cloudOpacity));
 		p.setProperty("cloudSpeed", String.valueOf(cloudSpeed));
 		p.setProperty("globalCloudHeightOffset", String.valueOf(globalCloudHeightOffset));
+		p.setProperty("vanillaCloudLayerOffset", String.valueOf(vanillaCloudLayerOffset));
 		p.setProperty("middleCloudLayerEnabled", String.valueOf(middleCloudLayerEnabled));
 		p.setProperty("middleCloudLayerOffset", String.valueOf(middleCloudLayerOffset));
 		p.setProperty("upperCloudLayerEnabled", String.valueOf(upperCloudLayerEnabled));

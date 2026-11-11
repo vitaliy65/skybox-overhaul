@@ -49,7 +49,8 @@ public final class SkyboxConfigScreen extends Screen {
 		int skyRows = 5;
 		int cloudHeadingY = TOP + skyRows * ROW + 3;
 		int globalY = cloudHeadingY + 13;
-		int middleY = globalY + CLOUD_ROW_GAP;
+		int vanillaY = globalY + CLOUD_ROW_GAP;
+		int middleY = vanillaY + CLOUD_ROW_GAP;
 		int upperY = middleY + CLOUD_ROW_GAP;
 		int cloudAppearanceY = upperY + CLOUD_ROW_GAP;
 		int cloudAppearanceControlsY = cloudAppearanceY + 12;
@@ -86,13 +87,17 @@ public final class SkyboxConfigScreen extends Screen {
 			"skybox-overhaul.config.stars", SkyboxConfig.starCount, 1500.0, 8000.0, "", 0, false,
 			v -> SkyboxConfig.starCount = (int) Math.round(v), false));
 
-		// CloudLayers owns two additional layers. Global and per-layer offsets are additive.
+		// Global offset moves every layer incl. the vanilla one; per-layer offsets are added on top of it.
 		addRenderableWidget(new StringWidget(left + 4, cloudHeadingY, columnWidth - 8, 10,
 			Component.translatable("skybox-overhaul.config.section.clouds"), this.font));
 		addRenderableWidget(new StyledSlider(left + 3, globalY, columnWidth - 6, CONTROL_HEIGHT,
 			"skybox-overhaul.config.cloud.global", SkyboxConfig.globalCloudHeightOffset,
 			-256.0, 256.0, " blocks", 0, false,
 			v -> SkyboxConfig.globalCloudHeightOffset = (float) Math.round(v), false));
+		addRenderableWidget(new StyledSlider(left + 3, vanillaY, columnWidth - 6, CONTROL_HEIGHT,
+			"skybox-overhaul.config.cloud.vanilla", SkyboxConfig.vanillaCloudLayerOffset,
+			-256.0, 256.0, " blocks", 0, false,
+			v -> SkyboxConfig.vanillaCloudLayerOffset = (float) Math.round(v), false));
 		int switchWidth = Math.min(88, columnWidth / 2 + 14);
 		int localSliderWidth = columnWidth - switchWidth - 10;
 		addRenderableWidget(toggle(left + 3, middleY, switchWidth, "skybox-overhaul.config.cloud.middle",

@@ -1,5 +1,10 @@
 # Active Context
 
+## Latest (ванильный слой облаков двигается global offset + свой слайдер)
+- Баг: `globalCloudHeightOffset` прибавлялся только в `CloudLayers` (доп. слои), оригинальный слой рисовался с исходным `bottomY`. Фикс в `CloudRendererMixin`: `@ModifyVariable` на `bottomY` (ordinal 0) для не-доп. рендерера = `bottomY + global + vanillaCloudLayerOffset`. TAIL-инжект видит уже сдвинутый `bottomY`, поэтому в `renderAdditional` передаётся `bottomY - global - vanilla` (CloudLayers сам добавляет global, ванильный офсет на доп. слои не влияет).
+- Новая настройка `vanillaCloudLayerOffset` (-256..256, дефолт 0), слайдер под «Общий офсет высоты», ключи lang `cloud.vanilla`.
+- НЕ проверено: сборка и игра (в среде Claude нет Minecraft/Gradle-зависимостей); предположение, что TAIL-`bottomY` = изменённое значение (как уже работает с часами облаков).
+
 ## Latest (грозовые тучи: небо закрывается в дождь и грозу)
 - Два плотных слоя `clouds_storm_1.png` (~75% покрытия, дождь) и `clouds_storm_2.png` (~92%, гроза), генератор `tools/generate_storm_clouds.py` (бесшовный FFT-шум, бинарная альфа 256x256 как у остальных масок). `CloudLayers`: `STORM_LOW` (+16 блоков над ванильным слоем) и `STORM_HIGH` (+32), рисуются ПЕРЕД средним/верхним; прозрачность = `CloudLighting.stormCover(rain, thunder, SkyboxConfig.stormClouds)` (плавно, не рисуются при <0.01), цвет через `stormShade`. Настройка `stormClouds` (0..1, дефолт 0.8, 0 = выкл), слайдер на странице «Погода» (левая колонка, «Грозовые тучи»).
 - Проверено Claude: самопроверки (`stormCover`: сухо = 0, дождь = только первый слой, гроза = оба, плавность), конфиг; превью масок осмотрено. НЕ проверено: игра (высоты +16/+32, видимость окон в слоях, цена трёх-пяти CloudRenderer в кадре).
