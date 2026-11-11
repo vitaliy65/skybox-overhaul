@@ -48,13 +48,15 @@ public final class SkyboxConfigScreen extends Screen {
 		int cloudAppearanceY = upperY + CLOUD_ROW_GAP;
 		int cloudAppearanceControlsY = cloudAppearanceY + 12;
 		int skyBottom = cloudAppearanceControlsY + CONTROL_HEIGHT + 2;
-		int auroraBottom = TOP + AURORA_ROWS * ROW;
+		int fogHeadingY = TOP + AURORA_ROWS * ROW + 3;
+		int fogY = fogHeadingY + 13;
+		int auroraBottom = fogY + CONTROL_HEIGHT + 2;
 		int contentBottom = Math.max(skyBottom, auroraBottom);
 		int footerY = Math.max(this.height - 24, contentBottom + 5);
 
 		// Background is a non-interactive widget so it is rendered behind all controls.
 		addRenderableWidget(new PanelBackground(this.width, footerY + 22, left, right, columnWidth,
-			cloudHeadingY, globalY, cloudAppearanceControlsY, footerY));
+			cloudHeadingY, globalY, cloudAppearanceControlsY, fogHeadingY, fogY, footerY));
 
 		addRenderableWidget(new StringWidget(8, 2, this.width - 16, 12, this.title, this.font));
 		addRenderableWidget(new StringWidget(left, 16, columnWidth, 10,
@@ -143,6 +145,13 @@ public final class SkyboxConfigScreen extends Screen {
 			"skybox-overhaul.config.aurora-frequency", SkyboxConfig.auroraFrequency, 0.0, 1.0,
 			"%", 0, true, v -> SkyboxConfig.auroraFrequency = (float) v, false), auroraOn);
 
+		// Fog sits under the aurora options and stays active whatever the aurora switch says.
+		addRenderableWidget(new StringWidget(right + 4, fogHeadingY, columnWidth - 8, 10,
+			Component.translatable("skybox-overhaul.config.section.fog"), this.font));
+		addRenderableWidget(new StyledSlider(right + 3, fogY, columnWidth - 6, CONTROL_HEIGHT,
+			"skybox-overhaul.config.fog", SkyboxConfig.fogTransition, 0.0, 1.0,
+			"", 0, true, v -> SkyboxConfig.fogTransition = (float) v, false));
+
 		int buttonWidth = Math.min(100, columnWidth - 4);
 		int buttonGap = 6;
 		int buttonTotal = buttonWidth * 2 + buttonGap;
@@ -179,10 +188,13 @@ public final class SkyboxConfigScreen extends Screen {
 		private final int cloudHeadingY;
 		private final int globalY;
 		private final int cloudAppearanceControlsY;
+		private final int fogHeadingY;
+		private final int fogY;
 		private final int footerY;
 
 		PanelBackground(int screenWidth, int screenHeight, int left, int right, int columnWidth,
-				int cloudHeadingY, int globalY, int cloudAppearanceControlsY, int footerY) {
+				int cloudHeadingY, int globalY, int cloudAppearanceControlsY, int fogHeadingY, int fogY,
+				int footerY) {
 			super(0, 0, screenWidth, screenHeight, Component.empty());
 			this.left = left;
 			this.right = right;
@@ -190,6 +202,8 @@ public final class SkyboxConfigScreen extends Screen {
 			this.cloudHeadingY = cloudHeadingY;
 			this.globalY = globalY;
 			this.cloudAppearanceControlsY = cloudAppearanceControlsY;
+			this.fogHeadingY = fogHeadingY;
+			this.fogY = fogY;
 			this.footerY = footerY;
 			this.active = false;
 		}
@@ -202,6 +216,7 @@ public final class SkyboxConfigScreen extends Screen {
 			drawPanel(graphics, left + 1, cloudHeadingY - 3, left + columnWidth - 1,
 				cloudAppearanceControlsY + CONTROL_HEIGHT + 2);
 			drawPanel(graphics, left + 3, globalY - 1, left + columnWidth - 3, globalY + CONTROL_HEIGHT + 1);
+			drawPanel(graphics, right + 1, fogHeadingY - 3, right + columnWidth - 1, fogY + CONTROL_HEIGHT + 2);
 		}
 
 		private static void drawPanel(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2) {

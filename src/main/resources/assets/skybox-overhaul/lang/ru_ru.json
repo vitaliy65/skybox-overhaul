@@ -24,5 +24,7 @@
 	"skybox-overhaul.config.cloud.speed": "Скорость %s",
 	"skybox-overhaul.config.cloud.offset": "Смещение: %s",
 	"skybox-overhaul.config.section.clouds": "Облачные слои",
+	"skybox-overhaul.config.section.fog": "Туман",
+	"skybox-overhaul.config.fog": "Мягкий край тумана: %s",
 	"skybox-overhaul.config.stars": "Звёзды: %s"
 }

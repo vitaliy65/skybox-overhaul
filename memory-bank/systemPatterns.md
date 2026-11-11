@@ -12,7 +12,7 @@
 | `SkyPalette` | Чистая Java (без MC): таблица цветов по высоте солнца `s = cos(sunAngle)`; `fog()` и `sky()`; `main()` = самопроверка (`java -ea SkyPalette.java`). `SkyboxConfig.paletteStrength` (по умолчанию 0.8). |
 | `mixin/AtmosphericFogEnvironmentMixin` | (1) `@Redirect` убирает наклон цвета тумана по направлению взгляда (`Vector3fc.dot`), (2) `@Inject RETURN` на `getBaseColor` подмешивает палитру горизонта. |
 | `mixin/SkyRendererMixin` | `extractRenderState` TAIL: цвет зенита (`state.skyColor`); `<init>` TAIL: создаёт `NightSky`+`HorizonHaze`; `renderStars` HEAD cancel -> `NightSky.render`; `renderSkyDisc` TAIL -> `HorizonHaze.render`; `close` HEAD. |
-| `mixin/FogRendererMixin` | `setupFog` RETURN: копирует итоговый цвет тумана и дальность прорисовки в `SkyboxState`. |
+| `mixin/FogRendererMixin` | (1) `@ModifyExpressionValue` на `Mth.clamp` внутри `setupFog`: растягивает рампу render-distance тумана (двигает `renderDistanceStart`, конец не трогает) по `SkyboxConfig.fogTransition`, работает и с Sodium; (2) `setupFog` RETURN: копирует итоговый цвет тумана в `SkyboxState`. |
 | `SkyboxConfig` | Чистый JDK: статические поля настроек, `load/save(Path)` через `Properties`, `reset()`, самопроверка в `main`. Читается вживую рендерерами. |
 | `SkyboxConfigScreen` / `SkyboxModMenu` | Экран на ванильных виджетах (3 ползунка %, кнопка-переключатель, Reset, Done) и вход для Mod Menu; сохраняет в `onClose`. |
 | `SkyboxState` | Статика render-thread: `FOG` (Vector4f), `rainBrightness`, `valid`. |
